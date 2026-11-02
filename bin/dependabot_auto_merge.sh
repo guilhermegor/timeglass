@@ -39,7 +39,9 @@ roster_bots() {
 	local str_pr="$1" str_base
 	str_base=$(gh api "repos/$GH_REPO/pulls/$str_pr" | jq -r .base.sha) || return 1
 	{ gh api -H "Accept: application/vnd.github.raw" \
-		"repos/$GH_REPO/contents/.review-bots.yaml?ref=$str_base" 2>/dev/null || true; } |
+		"repos/$GH_REPO/contents/.github/.review-bots.yaml?ref=$str_base" 2>/dev/null ||
+		gh api -H "Accept: application/vnd.github.raw" \
+			"repos/$GH_REPO/contents/.review-bots.yaml?ref=$str_base" 2>/dev/null || true; } |
 		awk '/^[[:space:]]*-[[:space:]]+login:/ { sub(/^[^:]*:[[:space:]]*/, ""); sub(/#.*/, ""); gsub(/["\047[:space:]]/, ""); str_login = $0 }
 			/^[[:space:]]+posts:[[:space:]]*threads[[:space:]]*(#.*)?$/ && str_login != "" { print str_login; str_login = "" }'
 }
