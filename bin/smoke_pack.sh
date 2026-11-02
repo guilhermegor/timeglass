@@ -15,6 +15,10 @@ package_name() {
     node -p "require('$PROJECT_ROOT/package.json').name"
 }
 
+package_version() {
+    node -p "require('$PROJECT_ROOT/package.json').version"
+}
+
 pack_tarball() {
     local tarball
     tarball="$(cd "$PROJECT_ROOT" && npm pack --silent)"
@@ -107,6 +111,18 @@ smoke_import_esm() {
     print_status "success" "import('$pkg_name') (ESM) smoke passed"
 }
 
+smoke_cli_version() {
+    local pkg_name="$1"
+    local expected actual
+    expected="$(package_version)"
+    actual="$(cd "$TMP_DIR" && npx --no-install "$pkg_name" --version)"
+    if [ "$actual" != "$expected" ]; then
+        print_status "error" "npx $pkg_name --version printed '$actual', expected '$expected'"
+        exit 1
+    fi
+    print_status "success" "npx $pkg_name --version smoke passed"
+}
+
 main() {
     local pkg_name
     pkg_name="$(package_name)"
@@ -120,6 +136,7 @@ main() {
     install_into_consumer "$tarball"
     smoke_require_cjs "$pkg_name"
     smoke_import_esm "$pkg_name"
+    smoke_cli_version "$pkg_name"
 
     print_status "success" "Package tarball smoke test passed"
 }

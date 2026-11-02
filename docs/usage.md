@@ -121,6 +121,37 @@ closes and can remain on disk if the process exits unexpectedly; only the sessio
 `0600`. `playwright` is loaded
 lazily and only by `addAccount`.
 
+## Command line
+
+Installing the package puts a `timeglass` binary on the path (`bin` in `package.json`,
+pointing at `dist/cjs/cli/bin.js`).
+
+| Command | What it does |
+| --- | --- |
+| `timeglass` | prints a usage table (session and weekly utilisation, reset day and time) and a billing table (plan, paid, renewal, auto-renew) for every saved account |
+| `timeglass add <name>` | opens a browser to log in to claude.ai and saves the account |
+| `timeglass --version` | prints the package version |
+| `timeglass --help` | prints the command list |
+
+```text
+Account  Session            Weekly
+-------  -----------------  -----------------
+work     12%  resets Mon 18:00  40%  resets Sat 09:30
+```
+
+No window opens for the default command: it reads every account over plain HTTP.
+Anything that could not be read prints as `unknown` (an expired session, a network error,
+a missing field), never as a guess; a Team member whose subscription is managed by an admin
+shows `managed by admin` in the renewal column. Reset times are shown in the local time zone.
+
+Renewal and auto-renew come from the billing cache described above: each run records what
+the API returned, so a later failed read still shows the last known renewal date while it is
+in the future. The weekly reset falls back to the cached value the same way.
+
+The CLI is the one call site that passes `CONSOLE_EMITTER`; library functions keep
+`NULL_EMITTER` unless the host injects a logger. Exit codes: `0` success, `1` login
+failed or timed out, `2` bad usage (unknown command, missing or invalid account name).
+
 ## Running tests and lint locally
 
 ```bash
