@@ -4,10 +4,12 @@
 
 timeglass keeps a logged-in claude.ai session on disk so it can read usage over plain HTTP.
 
-- **Minimal storage.** Only claude.ai cookies are kept. Third-party cookies (Cloudflare,
-  analytics, SSO) are dropped and every origin's localStorage is emptied, because the API calls
+- **Minimal storage.** Only cookies scoped to claude.ai or its subdomains are kept,
+  which includes Cloudflare's `cf_clearance` for claude.ai. Cookies for any other domain
+  (analytics, SSO) are dropped and every origin's localStorage is emptied, because the API calls
   need nothing else. This holds whatever the caller passes in.
-- **File permissions.** The accounts directory is tightened to `0700`. The session file is written atomically with mode `0600`; the temp file is
+- **File permissions.** The accounts directory is created `0700`; an existing directory
+  supplied by the caller keeps its mode and is never chmod-ed. The session file is written atomically with mode `0600`; the temp file is
   created `0600`, so it is never wider. The login browser uses a fresh, non-persistent context, but
   Chromium still creates a temporary user-data profile that can hold login cookies. It is removed when
   the browser closes and can remain on disk if the process exits unexpectedly; the `0600` guarantee

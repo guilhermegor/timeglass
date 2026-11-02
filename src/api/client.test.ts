@@ -190,6 +190,48 @@ describe.each(FAILURES)('subscription and usage endpoints: %s', (_label, stub, r
   });
 });
 
+describe('organization choice and request paths', () => {
+  it('prefers the highest plan over an earlier free org', async () => {
+    const organizations = {
+      body: [
+        { uuid: 'free-org', capabilities: ['chat'] },
+        { uuid: 'team-org', capabilities: ['chat', 'raven'] },
+        { uuid: 'max-org', capabilities: ['chat', 'claude_max'] },
+        { uuid: 'max-late', capabilities: ['claude_max'] },
+      ],
+    };
+    const { fetch, urls } = fakeFetch({ organizations });
+    const snapshot = await fetchAccountSnapshot({ cookieHeader: COOKIE, fetch });
+
+    expect(snapshot.organization).toMatchObject({ value: { plan: 'max' } });
+    expect(urls[1]).toContain('/max-org');
+  });
+
+  it('percent-encodes the org uuid in the path', async () => {
+    const organizations = { body: [{ uuid: 'a/b?c', capabilities: ['claude_pro'] }] };
+    const { fetch, urls } = fakeFetch({ organizations });
+    await fetchAccountSnapshot({ cookieHeader: COOKIE, fetch });
+
+    expect(urls[1]).toBe('https://claude.ai/api/organizations/a%2Fb%3Fc');
+  });
+
+  it('does not call valid JSON a challenge because of a marker in a name', async () => {
+    const organizations = {
+      body: [{ uuid: ORG_UUID, name: 'Just a moment', capabilities: ['claude_pro'] }],
+    };
+    const snapshot = await snapshotOf({ organizations });
+
+    expect(snapshot.organization.state).toBe('ok');
+  });
+
+  it('calls an HTML 200 without a marker malformed, not a challenge', async () => {
+    const stub = { contentType: 'text/html', raw: '<html>hello</html>' };
+    const snapshot = await snapshotOf({ usage: stub });
+
+    expect(snapshot.usage).toEqual({ state: 'unknown', reason: 'malformed' });
+  });
+});
+
 describe('fetchAccountSnapshot partial and malformed shapes', () => {
   it('keeps the plan but reports paid as null when the org detail call fails', async () => {
     const snapshot = await snapshotOf({ detail: { status: HTTP_UNAUTHORIZED } });

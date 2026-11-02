@@ -25,10 +25,19 @@ export function classifyPlan(capabilities: unknown): Plan {
   return 'unknown';
 }
 
+const PLAN_ORDER: Plan[] = ['unknown', 'free', 'team', 'pro', 'max'];
+
+function planRank(org: Json): number {
+  return PLAN_ORDER.indexOf(classifyPlan(org.capabilities));
+}
+
 export function pickOrganization(data: unknown): { uuid: string; plan: Plan } | null {
   if (!Array.isArray(data)) return null;
   const orgs = data.map(asObject).filter((org): org is Json => org !== null);
-  const chosen = orgs.find((org) => classifyPlan(org.capabilities) !== 'unknown') ?? orgs[0];
+  const chosen = orgs.reduce<Json | undefined>(
+    (best, org) => (best && planRank(best) >= planRank(org) ? best : org),
+    undefined,
+  );
   const uuid = asString(chosen?.uuid);
   return chosen && uuid ? { uuid, plan: classifyPlan(chosen.capabilities) } : null;
 }

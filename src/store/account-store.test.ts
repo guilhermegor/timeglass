@@ -16,11 +16,14 @@ import { buildCookieHeader, type StorageCookie, type StorageState } from './stor
 const MS_PER_SECOND = 1000;
 const NOW_MS = Date.parse('2026-11-02T00:00:00Z');
 const NOW_S = NOW_MS / MS_PER_SECOND;
+const BAD_PATH = 7;
 const WIDE_MODE = 0o644;
+const WIDE_DIR_MODE = 0o755;
 const NAME_TOO_LONG = 65;
 const SECONDS_PER_DAY = 86_400;
 const MODE_MASK = 0o777;
 const OWNER_ONLY = 0o600;
+const OWNER_ONLY_DIR = 0o700;
 
 function cookie(overrides: Partial<StorageCookie>): StorageCookie {
   return {
@@ -58,7 +61,10 @@ describe('saveStorageState', () => {
   });
 
   it('keeps only claude.ai cookies and drops foreign cookies and every origin', () => {
-    const origins = [{ origin: 'https://claude.ai', localStorage: [] }, { origin: 'https://evil.example' }];
+    const origins = [
+      { origin: 'https://claude.ai', localStorage: [] },
+      { origin: 'https://evil.example' },
+    ];
     saveStorageState(dir, 'work', {
       cookies: [
         cookie({ name: 'keep', domain: '.claude.ai' }),
@@ -109,6 +115,50 @@ describe('account names', () => {
       expect(fs.existsSync(dir)).toBe(false);
     },
   );
+});
+
+describe('account name guards', () => {
+  it('rejects names ending in the state-file suffix', () => {
+    expect(() => saveStorageState(dir, 'work.storage.json', stateWith())).toThrow(
+      'Invalid account name',
+    );
+  });
+
+  it('makes load reject an invalid name exactly like save', () => {
+    expect(() => loadStorageState(dir, '../evil')).toThrow('Invalid account name');
+  });
+
+  it('rejects a cookie whose path is not a string', () => {
+    fs.mkdirSync(dir, { recursive: true });
+    const bad = {
+      cookies: [{ name: 'a', value: 'b', domain: 'claude.ai', path: BAD_PATH, expires: 1 }],
+    };
+    fs.writeFileSync(storageStatePath(dir, 'bad'), JSON.stringify(bad));
+    expect(loadStorageState(dir, 'bad')).toBeNull();
+  });
+
+  it('replaces a stale temp file left by a crashed write', () => {
+    saveStorageState(dir, 'work', stateWith(cookie({})));
+    const temp = `${storageStatePath(dir, 'work')}.${process.pid}.tmp`;
+    fs.writeFileSync(temp, 'stale');
+    saveStorageState(dir, 'work', stateWith(cookie({ value: 'fresh' })));
+
+    expect(fs.existsSync(temp)).toBe(false);
+    expect(loadStorageState(dir, 'work')?.cookies[0]?.value).toBe('fresh');
+  });
+
+  it('leaves the mode of a caller-supplied existing directory alone', () => {
+    fs.mkdirSync(dir, { recursive: true, mode: WIDE_DIR_MODE });
+    fs.chmodSync(dir, WIDE_DIR_MODE);
+    saveStorageState(dir, 'work', stateWith(cookie({})));
+
+    expect(fs.statSync(dir).mode & MODE_MASK).toBe(WIDE_DIR_MODE);
+  });
+
+  it('creates a new directory owner-only', () => {
+    saveStorageState(dir, 'work', stateWith(cookie({})));
+    expect(fs.statSync(dir).mode & MODE_MASK).toBe(OWNER_ONLY_DIR);
+  });
 });
 
 describe('listAccounts and removeAccount', () => {

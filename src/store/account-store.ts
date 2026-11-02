@@ -33,8 +33,9 @@ export function storageStatePath(dir: string, name: string): string {
 
 export function saveStorageState(dir: string, name: string, state: StorageState): void {
   const target = storageStatePath(dir, name);
-  fs.mkdirSync(dir, { recursive: true, mode: DIR_MODE });
-  fs.chmodSync(dir, DIR_MODE);
+  if (fs.mkdirSync(dir, { recursive: true, mode: DIR_MODE }) !== undefined) {
+    fs.chmodSync(dir, DIR_MODE);
+  }
   const temp = `${target}.${process.pid}.tmp`;
   fs.rmSync(temp, { force: true });
   try {
@@ -51,8 +52,9 @@ export function saveStorageState(dir: string, name: string, state: StorageState)
 }
 
 export function loadStorageState(dir: string, name: string): StorageState | null {
+  const target = storageStatePath(dir, name);
   try {
-    const raw = fs.readFileSync(storageStatePath(dir, name), 'utf8');
+    const raw = fs.readFileSync(target, 'utf8');
     return parseStorageState(JSON.parse(raw) as unknown);
   } catch {
     return null;

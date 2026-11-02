@@ -24,6 +24,7 @@ function isCookie(value: unknown): value is StorageCookie {
     typeof cookie.name === 'string' &&
     typeof cookie.value === 'string' &&
     typeof cookie.domain === 'string' &&
+    typeof cookie.path === 'string' &&
     typeof cookie.expires === 'number'
   );
 }

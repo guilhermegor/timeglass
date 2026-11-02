@@ -106,7 +106,6 @@ describe('addAccount', () => {
     expect(loadStorageState(dir, 'work')).toBeNull();
     expect(session.closed).toBe(true);
   });
-
 });
 
 describe('addAccount degraded paths', () => {
