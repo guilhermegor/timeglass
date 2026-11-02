@@ -97,6 +97,11 @@ function stamp<T>(value: T, now: Date): Stamped<T> {
   return { value, readAt: now.toISOString() };
 }
 
+/** An account name that would resolve to `Object.prototype` (or its members) when used as a key. */
+function isUnsafeKey(name: string): boolean {
+  return name === '__proto__' || name === 'constructor' || name === 'prototype';
+}
+
 /**
  * Records only values actually read; a null never overwrites a good cached value. The admin
  * flag is dropped on a fresh date or once the account is confirmed free (`paid === false`);
@@ -108,6 +113,7 @@ export function recordBilling(
   read: BillingRead,
   now: Date = new Date(),
 ): void {
+  if (isUnsafeKey(name)) return;
   const entry = cache[name] ?? {};
   if (read.renewalAt || read.paid === false) delete entry.managedByAdmin;
   if (read.renewalAt) entry.renewalAt = stamp(read.renewalAt, now);
@@ -123,7 +129,7 @@ export function recordWeeklyReset(
   resetsAt: string | null | undefined,
   now: Date = new Date(),
 ): void {
-  if (!resetsAt || !(Date.parse(resetsAt) > now.getTime())) return;
+  if (isUnsafeKey(name) || !resetsAt || !(Date.parse(resetsAt) > now.getTime())) return;
   cache[name] = {
     ...(cache[name] ?? {}),
     weeklyResetAt: stamp(new Date(resetsAt).toISOString(), now),

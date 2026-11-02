@@ -89,6 +89,17 @@ describe('weekly reset', () => {
   });
 });
 
+describe('prototype-polluting account names', () => {
+  it.each(['__proto__', 'constructor', 'prototype'])('ignores %s', (name) => {
+    const cache: BillingCache = {};
+    recordBilling(cache, name, { renewalAt: '2026-11-05T12:00:00.000Z', autoRenew: true }, NOW);
+    recordWeeklyReset(cache, name, '2026-10-15T09:00:00Z', NOW);
+    expect(Object.keys(cache)).toEqual([]);
+    expect(Object.getPrototypeOf(cache)).toBe(Object.prototype);
+    expect(({} as Record<string, unknown>).renewalAt).toBeUndefined();
+  });
+});
+
 describe('billing cache', () => {
   let home: string;
   const opts = () => ({ homeDir: home, env: {} });
