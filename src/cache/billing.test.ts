@@ -257,4 +257,11 @@ describe('billing cache input strictness', () => {
     const dir = path.dirname(billingCachePath(opts()));
     expect(fs.readdirSync(dir)).toEqual(['billing.json']);
   });
+
+  it('maps prototype-named billing intervals to unknown and rejects zone-less cached dates', () => {
+    const body = { next_charge_at: '2026-11-06T09:30:00Z', billing_interval: 'constructor' };
+    expect(billingFromSubscription(OK, body).period).toBe('unknown');
+    const entry = { renewalAt: { value: '2999-01-01', readAt: 'r' } };
+    expect(needsFetch(entry, NOW)).toBe(true);
+  });
 });
