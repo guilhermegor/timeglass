@@ -8,8 +8,10 @@ timeglass keeps a logged-in claude.ai session on disk so it can read usage over 
   analytics, SSO) are dropped and every origin's localStorage is emptied, because the API calls
   need nothing else. This holds whatever the caller passes in.
 - **File permissions.** The session file is written atomically with mode `0600`; the temp file is
-  created `0600`, so it is never wider. The login browser is a fresh, non-persistent context, so
-  the only thing that reaches disk is that file.
+  created `0600`, so it is never wider. The login browser uses a fresh, non-persistent context, but
+  Chromium still creates a temporary user-data profile that can hold login cookies. It is removed when
+  the browser closes and can remain on disk if the process exits unexpectedly; the `0600` guarantee
+  covers only the session file.
 - **Account names** that could escape the accounts directory or collide with its file suffix are
   rejected.
 - **Fail closed.** A missing, unreadable or malformed session file yields no session. Expired

@@ -88,7 +88,9 @@ Log lines carry only the endpoint label, HTTP status and reason: never a cookie,
 account needs `addAccount` again.
 
 The browser login uses your installed Chrome (`channel: 'chrome'`) with a fresh, non-persistent
-profile, so the only thing written to disk is the `0600` session file. `playwright` is loaded
+profile. Chromium's temporary user-data profile may hold login cookies, is removed when the browser
+closes and can remain on disk if the process exits unexpectedly; only the session file is guaranteed
+`0600`. `playwright` is loaded
 lazily and only by `addAccount`.
 
 ## Running tests and lint locally
