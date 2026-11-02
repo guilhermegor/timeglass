@@ -59,7 +59,7 @@ never logged or returned.
 `readLabels` drops non-string values and a corrupt file. `setLabel` sets a label, or clears
 it when the label is empty, and returns `false` if the write failed. `renameLabel` moves a
 label to a renamed account: it is a no-op (returns `true`) when the old account has no label,
-and returns `false` when the write failed or the new name already carries a different label.
+and returns `false` when the write failed or the new name already carries a different label. Renaming onto an identical label succeeds.
 
 ## Files and locations
 
@@ -74,3 +74,21 @@ only, since a parser message can quote file content.
 | Claude Code config | `$CLAUDE_CONFIG_DIR/.claude.json`, else `~/.claude.json` |
 
 Each path function takes `PathOptions` (`homeDir`, `env`) so tests never touch the real home.
+
+## Known limits
+
+- **Concurrent writers.** Each write reads, changes and rewrites the whole file with no lock,
+  so two processes saving at once can drop each other's entries (last writer wins). Reload
+  just before saving, and keep one writer per file where you can.
+- **Atomic, not durable.** Writes go to a fresh `0600` temp file renamed over the target, so a
+  reader never sees a half-written file. There is no `fsync`, so a power loss can still lose
+  the latest write. Directories are created `0700`.
+- **Relative paths are ignored.** A relative `$CLAUDESTATUS_CACHE_FILE`, `$XDG_CACHE_HOME` or
+  `$XDG_CONFIG_HOME` falls back to the default location, as the XDG spec requires.
+- **Admin-managed accounts.** `managedByAdmin` is recorded for the caller's use but
+  `needsFetch` does not consult it, because such an account has no renewal date to cache.
+  A caller that wants to skip the repeat request should check that field itself.
+- **Active account cost.** `detectActiveAccount` reads and parses `.claude.json` on each call;
+  cache the result if you call it in a hot loop.
+- **Dates.** Renewal and reset timestamps must be ISO 8601 with a `Z` or an offset; anything
+  else is treated as missing.

@@ -86,7 +86,9 @@ describe('weekly reset', () => {
     expect(effectiveWeeklyReset(cache.a, '2026-10-01T09:00:00Z', NOW)).toBe(
       '2026-10-15T09:00:00.000Z',
     );
-    expect(effectiveWeeklyReset(cache.a, '2026-10-16T00:00:00Z', NOW)).toBe('2026-10-16T00:00:00Z');
+    expect(effectiveWeeklyReset(cache.a, '2026-10-16T00:00:00Z', NOW)).toBe(
+      '2026-10-16T00:00:00.000Z',
+    );
     expect(effectiveWeeklyReset(cache.a, null, new Date('2026-10-16T00:00:00Z'))).toBeNull();
   });
 });
@@ -220,5 +222,39 @@ describe('billing cache hardening', () => {
     recordBilling(cache, 'toString', { renewalAt: '2026-11-05T12:00:00.000Z' }, NOW);
     expect(own(Object.prototype.toString, 'renewalAt')).toBe(false);
     expect(own(cache, 'toString')).toBe(true);
+  });
+});
+
+describe('billing cache input strictness', () => {
+  let home: string;
+  const opts = () => ({ homeDir: home, env: {} });
+
+  beforeEach(() => {
+    home = fs.mkdtempSync(path.join(os.tmpdir(), 'tg-billing-'));
+  });
+  afterEach(() => {
+    fs.rmSync(home, { recursive: true, force: true });
+  });
+
+  it('accepts only zoned ISO dates as renewal times', () => {
+    expect(billingFromSubscription(OK, { next_charge_at: BAD_VALUE }).renewalAt).toBeNull();
+    expect(
+      billingFromSubscription(OK, { next_charge_at: '2026-11-06 09:30' }).renewalAt,
+    ).toBeNull();
+    const cache: BillingCache = {};
+    recordBilling(cache, 'a', { renewalAt: 'garbage', managedByAdmin: true }, NOW);
+    expect(cache.a?.renewalAt).toBeUndefined();
+    expect(cache.a?.managedByAdmin?.value).toBe(true);
+  });
+
+  it('ignores relative cache paths and leaves no temp file behind', () => {
+    const rel = {
+      homeDir: home,
+      env: { XDG_CACHE_HOME: 'rel', CLAUDESTATUS_CACHE_FILE: 'x.json' },
+    };
+    expect(billingCachePath(rel)).toBe(path.join(home, '.cache', 'claudestatus', 'billing.json'));
+    saveBillingCache({}, opts());
+    const dir = path.dirname(billingCachePath(opts()));
+    expect(fs.readdirSync(dir)).toEqual(['billing.json']);
   });
 });

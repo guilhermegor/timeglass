@@ -39,7 +39,8 @@ export function renameLabel(
   const labels = readLabels(opts, log);
   const label = labels[oldName];
   if (label === undefined) return true;
-  if (newName in labels && newName !== oldName) return false;
+  const existing = labels[newName];
+  if (existing !== undefined && existing !== label) return false;
   delete labels[oldName];
   labels[newName] = label;
   return writeJsonObject(labelsPath(opts), labels, log);

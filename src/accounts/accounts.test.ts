@@ -92,6 +92,13 @@ describe('labels', () => {
     expect(renameLabel('missing', 'x', opts())).toBe(true);
   });
 
+  it('renames onto an identical label but not a different one', () => {
+    setLabel('a', 'Same', opts());
+    setLabel('b', 'Same', opts());
+    expect(renameLabel('a', 'b', opts())).toBe(true);
+    expect(readLabels(opts())).toEqual({ b: 'Same' });
+  });
+
   it('treats __proto__ and constructor as ordinary account names', () => {
     expect(setLabel('__proto__', 'P', opts())).toBe(true);
     expect(readLabels(opts())).toEqual({ ['__proto__']: 'P' });

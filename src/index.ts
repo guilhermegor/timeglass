@@ -8,7 +8,10 @@ export { billingCachePath, labelsPath, claudeJsonPath } from './cache/json-file.
 export type {
   BillingCache,
   BillingPeriod,
+  BillingRead,
   CacheEntry,
+  CachedBilling,
+  Stamped,
   SubscriptionBilling,
 } from './cache/billing.js';
 export {

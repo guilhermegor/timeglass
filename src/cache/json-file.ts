@@ -10,6 +10,7 @@ export interface PathOptions {
 }
 
 export const PRIVATE_FILE_MODE = 0o600;
+const PRIVATE_DIR_MODE = 0o700;
 
 export type JsonObject = Record<string, unknown>;
 
@@ -48,11 +49,16 @@ export function writeJsonObject(
 ): boolean {
   const tmp = `${file}.${process.pid}.tmp`;
   try {
-    fs.mkdirSync(path.dirname(file), { recursive: true });
-    fs.writeFileSync(tmp, `${JSON.stringify(data, null, 2)}\n`, { mode: PRIVATE_FILE_MODE });
+    fs.mkdirSync(path.dirname(file), { recursive: true, mode: PRIVATE_DIR_MODE });
+    fs.rmSync(tmp, { force: true });
+    fs.writeFileSync(tmp, `${JSON.stringify(data, null, 2)}\n`, {
+      mode: PRIVATE_FILE_MODE,
+      flag: 'wx',
+    });
     fs.renameSync(tmp, file);
     return true;
   } catch (err: unknown) {
+    fs.rmSync(tmp, { force: true });
     log.error('cannot write file', { file, code: errorCode(err) });
     return false;
   }
@@ -62,19 +68,25 @@ function homeOf(opts: PathOptions): string {
   return opts.homeDir ?? os.homedir();
 }
 
+function absoluteEnv(env: Record<string, string | undefined>, key: string): string | undefined {
+  const value = env[key];
+  return value && path.isAbsolute(value) ? value : undefined;
+}
+
 function envOf(opts: PathOptions): Record<string, string | undefined> {
   return opts.env ?? process.env;
 }
 
 export function billingCachePath(opts: PathOptions = {}): string {
   const env = envOf(opts);
-  if (env.CLAUDESTATUS_CACHE_FILE) return env.CLAUDESTATUS_CACHE_FILE;
-  const base = env.XDG_CACHE_HOME || path.join(homeOf(opts), '.cache');
+  const exact = absoluteEnv(env, 'CLAUDESTATUS_CACHE_FILE');
+  if (exact) return exact;
+  const base = absoluteEnv(env, 'XDG_CACHE_HOME') ?? path.join(homeOf(opts), '.cache');
   return path.join(base, 'claudestatus', 'billing.json');
 }
 
 export function labelsPath(opts: PathOptions = {}): string {
-  const base = envOf(opts).XDG_CONFIG_HOME || path.join(homeOf(opts), '.config');
+  const base = absoluteEnv(envOf(opts), 'XDG_CONFIG_HOME') ?? path.join(homeOf(opts), '.config');
   return path.join(base, 'claudestatus-bar', 'labels.json');
 }
 

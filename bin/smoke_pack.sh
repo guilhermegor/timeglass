@@ -54,6 +54,12 @@ smoke_require_cjs() {
       if (pkg.detectActiveAccount([], { homeDir: '/nonexistent-timeglass-smoke', env: {} }) !== 'unknown') {
         throw new Error('CJS smoke failed: detectActiveAccount should be unknown');
       }
+      const home = require('fs').mkdtempSync(require('os').tmpdir() + '/tg-smoke-');
+      const ho = { homeDir: home, env: {} };
+      pkg.setLabel('a', 'A', ho);
+      if (pkg.readLabels(ho).a !== 'A' || typeof pkg.loadBillingCache !== 'function') {
+        throw new Error('CJS smoke failed: label round-trip or cache exports broken');
+      }
       // API client + account store (#6): exported, and a 401 degrades to unknown, not a throw.
       if (typeof pkg.addAccount !== 'function' || typeof pkg.listAccounts !== 'function') {
         throw new Error('CJS smoke failed: account store exports missing');
@@ -93,6 +99,14 @@ smoke_import_esm() {
       }
       if (detectActiveAccount([], { homeDir: '/nonexistent-timeglass-smoke', env: {} }) !== 'unknown') {
         throw new Error('ESM smoke failed: detectActiveAccount should be unknown');
+      }
+      const { mkdtempSync } = await import('node:fs');
+      const { tmpdir } = await import('node:os');
+      const ho = { homeDir: mkdtempSync(tmpdir() + '/tg-smoke-'), env: {} };
+      const lib = await import('$pkg_name');
+      lib.setLabel('a', 'A', ho);
+      if (lib.readLabels(ho).a !== 'A' || typeof lib.loadBillingCache !== 'function') {
+        throw new Error('ESM smoke failed: label round-trip or cache exports broken');
       }
       // Same API client + account store witness as the CJS branch above.
       if (typeof addAccount !== 'function' || typeof listAccounts !== 'function') {

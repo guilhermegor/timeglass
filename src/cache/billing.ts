@@ -48,6 +48,12 @@ const PERIODS: Record<string, BillingPeriod> = {
   annual: 'annual',
 };
 
+const ISO_WITH_ZONE = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(:\d{2}(\.\d+)?)?(Z|[+-]\d{2}:\d{2})$/;
+
+function parseIso(value: unknown): number {
+  return typeof value === 'string' && ISO_WITH_ZONE.test(value) ? Date.parse(value) : Number.NaN;
+}
+
 const HTTP_UNAUTHORIZED = 401;
 const HTTP_FORBIDDEN = 403;
 const HTTP_OK = 200;
@@ -73,7 +79,7 @@ export function billingFromSubscription(status: number, body: unknown): Subscrip
   if (status === HTTP_FORBIDDEN && b.error?.type === 'permission_error') {
     return { ...none, managedByAdmin: true };
   }
-  const charge = Date.parse(String(b.next_charge_at));
+  const charge = parseIso(b.next_charge_at);
   if (status < HTTP_OK || status >= HTTP_MULTIPLE_CHOICES || Number.isNaN(charge)) return none;
   return {
     ...none,
@@ -103,8 +109,10 @@ export function recordBilling(
 ): void {
   if (isUnsafeKey(name)) return;
   const entry = ownEntry(cache, name);
-  if (read.renewalAt || read.paid === false) delete entry.managedByAdmin;
-  if (read.renewalAt) entry.renewalAt = stamp(read.renewalAt, now);
+  const renewal = parseIso(read.renewalAt);
+  const hasRenewal = !Number.isNaN(renewal);
+  if (hasRenewal || read.paid === false) delete entry.managedByAdmin;
+  if (hasRenewal) entry.renewalAt = stamp(new Date(renewal).toISOString(), now);
   else if (read.managedByAdmin === true) entry.managedByAdmin = stamp(true, now);
   if (typeof read.autoRenew === 'boolean') entry.autoRenew = stamp(read.autoRenew, now);
   cache[name] = entry;
@@ -116,10 +124,10 @@ export function recordWeeklyReset(
   resetsAt: string | null | undefined,
   now: Date = new Date(),
 ): void {
-  if (isUnsafeKey(name) || !resetsAt || !(Date.parse(resetsAt) > now.getTime())) return;
+  if (isUnsafeKey(name) || !(parseIso(resetsAt) > now.getTime())) return;
   cache[name] = {
     ...ownEntry(cache, name),
-    weeklyResetAt: stamp(new Date(resetsAt).toISOString(), now),
+    weeklyResetAt: stamp(new Date(parseIso(resetsAt)).toISOString(), now),
   };
 }
 
@@ -133,7 +141,13 @@ export function needsFetch(entry: CacheEntry | undefined, now: Date = new Date()
   return futureTime(entry.renewalAt, now) === null || typeof entry.autoRenew?.value !== 'boolean';
 }
 
-export function billingFromCache(entry: CacheEntry, now: Date = new Date()) {
+export interface CachedBilling {
+  billingDate: string;
+  daysLeft: number;
+  autoRenew: boolean;
+}
+
+export function billingFromCache(entry: CacheEntry, now: Date = new Date()): CachedBilling {
   const t = futureTime(entry.renewalAt, now);
   if (t === null || typeof entry.autoRenew?.value !== 'boolean') {
     throw new Error('billingFromCache called on an entry that needs a fetch');
@@ -150,8 +164,8 @@ export function effectiveWeeklyReset(
   apiResetsAt: string | null | undefined,
   now: Date = new Date(),
 ): string | null {
-  const api = apiResetsAt ? Date.parse(apiResetsAt) : Number.NaN;
-  if (apiResetsAt && api > now.getTime()) return apiResetsAt;
+  const api = parseIso(apiResetsAt);
+  if (api > now.getTime()) return new Date(api).toISOString();
   const cached = futureTime(entry?.weeklyResetAt, now);
   return cached === null ? null : new Date(cached).toISOString();
 }
