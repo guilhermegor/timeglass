@@ -54,6 +54,16 @@ smoke_require_cjs() {
       if (pkg.detectActiveAccount([], { homeDir: '/nonexistent-timeglass-smoke', env: {} }) !== 'unknown') {
         throw new Error('CJS smoke failed: detectActiveAccount should be unknown');
       }
+      // API client + account store (#6): exported, and a 401 degrades to unknown, not a throw.
+      if (typeof pkg.addAccount !== 'function' || typeof pkg.listAccounts !== 'function') {
+        throw new Error('CJS smoke failed: account store exports missing');
+      }
+      const unauthorized = { status: 401, headers: { get: () => null }, text: async () => '{}' };
+      pkg.fetchAccountSnapshot({ cookieHeader: '', fetch: async () => unauthorized }).then((s) => {
+        if (s.organization.state !== 'unknown' || s.organization.reason !== 'unauthorized') {
+          throw new Error('CJS smoke failed: 401 did not degrade to unknown');
+        }
+      });
     ")
     print_status "success" "require('$pkg_name') (CJS) smoke passed"
 }
@@ -61,7 +71,10 @@ smoke_require_cjs() {
 smoke_import_esm() {
     local pkg_name="$1"
     (cd "$TMP_DIR" && node --input-type=module -e "
-      import { greet, NULL_EMITTER, CONSOLE_EMITTER, detectActiveAccount } from '$pkg_name';
+      import {
+        greet, NULL_EMITTER, CONSOLE_EMITTER, fetchAccountSnapshot, addAccount, listAccounts,
+        detectActiveAccount,
+      } from '$pkg_name';
       if (greet('World') !== 'Hello, World!') {
         throw new Error('ESM import smoke failed: unexpected greet() output');
       }
@@ -80,6 +93,15 @@ smoke_import_esm() {
       }
       if (detectActiveAccount([], { homeDir: '/nonexistent-timeglass-smoke', env: {} }) !== 'unknown') {
         throw new Error('ESM smoke failed: detectActiveAccount should be unknown');
+      }
+      // Same API client + account store witness as the CJS branch above.
+      if (typeof addAccount !== 'function' || typeof listAccounts !== 'function') {
+        throw new Error('ESM smoke failed: account store exports missing');
+      }
+      const unauthorized = { status: 401, headers: { get: () => null }, text: async () => '{}' };
+      const snapshot = await fetchAccountSnapshot({ cookieHeader: '', fetch: async () => unauthorized });
+      if (snapshot.organization.state !== 'unknown' || snapshot.organization.reason !== 'unauthorized') {
+        throw new Error('ESM smoke failed: 401 did not degrade to unknown');
       }
     ")
     print_status "success" "import('$pkg_name') (ESM) smoke passed"
