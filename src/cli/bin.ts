@@ -13,14 +13,18 @@ function readVersion(): string {
   return String((parsed as { version?: unknown }).version ?? 'unknown');
 }
 
-runCli({
-  argv: process.argv.slice(2),
-  version: readVersion(),
-  dir: defaultAccountsDir(),
-  logger: CONSOLE_EMITTER,
-  out: (text) => process.stdout.write(`${text}\n`),
-  err: (text) => process.stderr.write(`${text}\n`),
-}).then(
+Promise.resolve()
+  .then(() =>
+    runCli({
+      argv: process.argv.slice(2),
+      version: readVersion(),
+      dir: defaultAccountsDir(),
+      logger: CONSOLE_EMITTER,
+      out: (text) => process.stdout.write(`${text}\n`),
+      err: (text) => process.stderr.write(`${text}\n`),
+    }),
+  )
+  .then(
   (code) => {
     process.exitCode = code;
   },

@@ -51,8 +51,9 @@ export function formatWindow(
   resetsAt: string | null,
   timeZone?: string,
 ): string {
-  if (!window) return UNKNOWN_CELL;
-  return `${formatUtilization(window.utilization)}  resets ${formatReset(resetsAt, timeZone)}`;
+  if (!window && resetsAt === null) return UNKNOWN_CELL;
+  const utilization = formatUtilization(window?.utilization ?? null);
+  return `${utilization}  resets ${formatReset(resetsAt, timeZone)}`;
 }
 
 export function formatPlan(report: AccountReport): string {

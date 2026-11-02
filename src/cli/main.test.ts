@@ -144,6 +144,18 @@ describe('runCli', () => {
     expect(out.join('\n')).toMatch(/old\s+unknown\s+unknown/);
   });
 
+  it('runCli_failedReadAfterSuccess_showsCachedWeeklyReset', async () => {
+    saveAccount('work');
+    await runCli(deps([], okFetch));
+    out = [];
+    await runCli(deps([], deniedFetch));
+    expect(out.join('\n')).toMatch(/work\s+unknown\s+unknown {2}resets Sat 09:30/);
+  });
+
+  it('runCli_help_printsCommandList', async () => {
+    expect(await runCli(deps(['-h']))).toBe(EXIT_OK);
+    expect(out.join('\n')).toContain('Usage: timeglass');
+  });
 });
 
 describe('runCli add', () => {

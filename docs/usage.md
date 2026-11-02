@@ -130,12 +130,12 @@ pointing at `dist/cjs/cli/bin.js`).
 | --- | --- |
 | `timeglass` | prints a usage table (session and weekly utilisation, reset day and time) and a billing table (plan, paid, renewal, auto-renew) for every saved account |
 | `timeglass add <name>` | opens a browser to log in to claude.ai and saves the account |
-| `timeglass --version` | prints the package version |
-| `timeglass --help` | prints the command list |
+| `timeglass --version` (`-v`) | prints the package version |
+| `timeglass --help` (`-h`) | prints the command list |
 
 ```text
-Account  Session            Weekly
--------  -----------------  -----------------
+Account  Session                Weekly
+-------  ---------------------  ---------------------
 work     12%  resets Mon 18:00  40%  resets Sat 09:30
 ```
 
