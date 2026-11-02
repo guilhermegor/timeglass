@@ -12,6 +12,13 @@ const VENDOR_POLICY = {
   __root__: {
     allow: {},
   },
+  store: {
+    allow: {
+      playwright:
+        'src/store/playwright-session.ts drives the one-time headed browser login and reads back its ' +
+        'storageState; loaded lazily (dynamic import) so plain HTTP reads never start a browser.',
+    },
+  },
 };
 
 function validateVendorPolicy(policy) {
