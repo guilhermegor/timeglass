@@ -17,7 +17,6 @@ export interface JsonRequest {
   fetch: FetchLike;
   url: string;
   headers: Record<string, string>;
-  /** Short fixed label for logs; the URL itself carries the org uuid and is never logged. */
   endpoint: string;
   logger?: LogEmitter;
 }
@@ -69,10 +68,6 @@ async function readResponse(request: JsonRequest): Promise<JsonResult & { status
   }
 }
 
-/**
- * GET a JSON document. Never throws: every failure is a typed `JsonResult`.
- * Logs only the endpoint label, status and reason, never the URL, headers or body.
- */
 export async function requestJson(request: JsonRequest): Promise<JsonResult> {
   const logger = request.logger ?? NULL_EMITTER;
   const { status, ...result } = await readResponse(request);

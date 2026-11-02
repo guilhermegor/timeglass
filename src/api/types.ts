@@ -1,6 +1,5 @@
 export type Plan = 'free' | 'pro' | 'max' | 'team' | 'unknown';
 
-/** Why a reading degraded to "unknown". Never carries a body, header, or id. */
 export type UnknownReason =
   | 'unauthorized'
   | 'forbidden'
@@ -9,10 +8,6 @@ export type UnknownReason =
   | 'network'
   | 'http_error';
 
-/**
- * One endpoint's outcome. Every failure is a value, never a throw: callers render
- * `unknown` (or "managed by the team admin") instead of guessing.
- */
 export type Reading<T> =
   | { state: 'ok'; value: T }
   | { state: 'managed_by_admin' }
@@ -20,7 +15,6 @@ export type Reading<T> =
 
 export interface Organization {
   plan: Plan;
-  /** `null` when claude.ai did not say. */
   paid: boolean | null;
 }
 
@@ -47,7 +41,6 @@ export interface AccountSnapshot {
   usage: Reading<Usage>;
 }
 
-/** The subset of `Response` this package reads; the global `fetch` satisfies it. */
 export interface FetchResponse {
   status: number;
   headers: { get(name: string): string | null };

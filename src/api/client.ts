@@ -11,15 +11,12 @@ import type {
 } from './types.js';
 
 const CLAUDE_URL = 'https://claude.ai';
-// claude.ai's Cloudflare clearance cookie is bound to the browser's user agent.
 const USER_AGENT =
   'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) ' +
   'Chrome/121.0.0.0 Safari/537.36';
 
 export interface ClientOptions {
-  /** Cookie header value built from the account's saved session. Never logged. */
   cookieHeader: string;
-  /** Defaults to the global `fetch`; inject a fake in tests. */
   fetch?: FetchLike;
   logger?: LogEmitter;
 }
@@ -34,17 +31,11 @@ function interpret<T>(result: JsonResult, parse: (data: unknown) => T | null): R
   return value === null ? unknown('malformed') : { state: 'ok', value };
 }
 
-/** A 403 `permission_error` means a Team member who is not the billing admin. */
 function interpretSubscription(result: JsonResult): Reading<Subscription> {
   if (!result.ok && result.permissionDenied) return { state: 'managed_by_admin' };
   return interpret(result, parseSubscription);
 }
 
-/**
- * Read one account's plan, billing and usage over plain HTTP using its saved session.
- * Never throws: each of the four endpoints degrades on its own to `unknown`, and a failed
- * organisation lookup degrades all three readings because nothing else can be addressed.
- */
 export async function fetchAccountSnapshot(options: ClientOptions): Promise<AccountSnapshot> {
   const fetchFn = options.fetch ?? (fetch as FetchLike);
   const logger = options.logger ?? NULL_EMITTER;

@@ -11,7 +11,6 @@ const POLL_INTERVAL_MS = 2000;
 const SETTLE_MS = 2000;
 
 export interface AddAccountOptions {
-  /** Directory the session file is written to (see `defaultAccountsDir`). */
   dir: string;
   openSession?: () => Promise<LoginSession>;
   sleep?: (ms: number) => Promise<void>;
@@ -57,11 +56,6 @@ async function captureAndSave(
   return { state: 'added' };
 }
 
-/**
- * Open a real browser once so the user can log in to claude.ai, then store the session for
- * `name`. Resolves with a typed result instead of throwing; only an invalid `name` throws,
- * before any browser opens. No browser is needed after this: reads go over plain HTTP.
- */
 export async function addAccount(
   name: string,
   options: AddAccountOptions,

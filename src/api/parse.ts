@@ -16,10 +16,6 @@ function asNumber(value: unknown): number | null {
   return typeof value === 'number' && Number.isFinite(value) ? value : null;
 }
 
-/**
- * Paid markers are checked before bare `chat`: a paid org keeps its `chat` capability.
- * Order is claude_max, claude_pro, raven (Team/Enterprise), then chat-only as free.
- */
 export function classifyPlan(capabilities: unknown): Plan {
   const list = Array.isArray(capabilities) ? capabilities : [];
   if (list.includes('claude_max')) return 'max';
@@ -29,7 +25,6 @@ export function classifyPlan(capabilities: unknown): Plan {
   return 'unknown';
 }
 
-/** The first org with a recognised plan, else the first one; `null` without a usable uuid. */
 export function pickOrganization(data: unknown): { uuid: string; plan: Plan } | null {
   if (!Array.isArray(data)) return null;
   const orgs = data.map(asObject).filter((org): org is Json => org !== null);
@@ -39,7 +34,6 @@ export function pickOrganization(data: unknown): { uuid: string; plan: Plan } | 
   return chosen && uuid ? { uuid, plan: classifyPlan(chosen.capabilities) } : null;
 }
 
-/** `billing_type` is the only paid signal; absent or non-string stays unknown (`null`). */
 export function parsePaid(detail: unknown, plan: Plan): boolean | null {
   const billingType = asString(asObject(detail)?.billing_type);
   if (billingType !== null) return billingType !== 'none';

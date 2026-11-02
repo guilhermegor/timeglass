@@ -1,6 +1,5 @@
 const CLAUDE_DOMAIN = 'claude.ai';
 const MS_PER_SECOND = 1000;
-// Playwright marks a session cookie (no expiry) with expires = -1.
 const SESSION_COOKIE = -1;
 
 export interface StorageCookie {
@@ -12,7 +11,6 @@ export interface StorageCookie {
   [extra: string]: unknown;
 }
 
-/** Playwright's `storageState` shape; only the cookies are read, the rest is kept verbatim. */
 export interface StorageState {
   cookies: StorageCookie[];
   origins: unknown[];
@@ -30,7 +28,6 @@ function isCookie(value: unknown): value is StorageCookie {
   );
 }
 
-/** Validate untrusted JSON; `null` for anything that is not a usable storage state. */
 export function parseStorageState(data: unknown): StorageState | null {
   const state = data as { cookies?: unknown; origins?: unknown } | null;
   if (typeof state !== 'object' || state === null) return null;
@@ -44,10 +41,6 @@ function isClaudeCookie(cookie: StorageCookie): boolean {
   return domain === CLAUDE_DOMAIN || domain.endsWith(`.${CLAUDE_DOMAIN}`);
 }
 
-/**
- * What is worth keeping on disk: claude.ai cookies only. The API calls need nothing else, so
- * third-party cookies (Cloudflare, analytics, SSO) and every origin's localStorage are dropped.
- */
 export function restrictToClaude(state: StorageState): StorageState {
   return { cookies: state.cookies.filter(isClaudeCookie), origins: [] };
 }
@@ -56,11 +49,6 @@ function isFresh(cookie: StorageCookie, nowMs: number): boolean {
   return cookie.expires === SESSION_COOKIE || cookie.expires * MS_PER_SECOND > nowMs;
 }
 
-/**
- * `Cookie` header value for claude.ai requests. Expired cookies are dropped, so a stale
- * session fails closed (a 401 reading) rather than sending a dead credential. Callers must
- * never log the result.
- */
 export function buildCookieHeader(state: StorageState, nowMs: number = Date.now()): string {
   return state.cookies
     .filter((cookie) => isClaudeCookie(cookie) && isFresh(cookie, nowMs))

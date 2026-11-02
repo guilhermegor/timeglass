@@ -1,0 +1,20 @@
+# Security
+
+## API client and account store
+
+timeglass keeps a logged-in claude.ai session on disk so it can read usage over plain HTTP.
+
+- **Minimal storage.** Only claude.ai cookies are kept. Third-party cookies (Cloudflare,
+  analytics, SSO) are dropped and every origin's localStorage is emptied, because the API calls
+  need nothing else. This holds whatever the caller passes in.
+- **File permissions.** The session file is written atomically with mode `0600`; the temp file is
+  created `0600`, so it is never wider. The login browser is a fresh, non-persistent context, so
+  the only thing that reaches disk is that file.
+- **Account names** that could escape the accounts directory or collide with its file suffix are
+  rejected.
+- **Fail closed.** A missing, unreadable or malformed session file yields no session. Expired
+  cookies are never sent, so a stale session produces a 401 reading rather than transmitting a
+  dead credential. With no usable session there is no cookie header and no request.
+- **No secrets in logs.** The cookie header is never logged and callers must not log it. The
+  HTTP layer logs only an endpoint label, status and reason, never the URL (it carries the
+  organisation uuid), headers or body. A degraded reading never carries a body, header or id.

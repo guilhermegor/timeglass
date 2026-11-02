@@ -6,14 +6,6 @@ const SIGNED_IN_URL = /claude\.ai\/(new|recents|chat|settings)/;
 const ORGANIZATIONS_PROBE =
   "fetch('https://claude.ai/api/organizations').then((response) => response.ok).catch(() => false)";
 
-/**
- * Real Chrome (not bundled Chromium) with the automation flags off: claude.ai sits behind
- * Cloudflare, which blocks a default Playwright browser. A fresh, non-persistent context, so
- * the only thing that reaches disk is the `storageState` the caller writes with mode 0600.
- *
- * Playwright is imported lazily so reading usage over HTTP never loads it. The live login
- * cannot be exercised unattended; everything around it is covered with fakes.
- */
 export async function openPlaywrightSession(): Promise<LoginSession> {
   const { chromium } = await import('playwright');
   const browser = await chromium.launch({
