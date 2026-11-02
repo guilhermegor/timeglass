@@ -2,7 +2,12 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 
-import { buildCookieHeader, parseStorageState, type StorageState } from './storage-state.js';
+import {
+  buildCookieHeader,
+  parseStorageState,
+  restrictToClaude,
+  type StorageState,
+} from './storage-state.js';
 
 const FILE_MODE = 0o600;
 const DIR_MODE = 0o700;
@@ -28,12 +33,15 @@ export function storageStatePath(dir: string, name: string): string {
   return path.join(dir, `${name}${STATE_SUFFIX}`);
 }
 
-/** Write atomically with mode 0600; the temp file is created 0600 so it is never wider. */
+/**
+ * Write atomically with mode 0600; the temp file is created 0600 so it is never wider. Only
+ * claude.ai cookies are kept (see `restrictToClaude`), whatever the caller passes in.
+ */
 export function saveStorageState(dir: string, name: string, state: StorageState): void {
   const target = storageStatePath(dir, name);
   fs.mkdirSync(dir, { recursive: true, mode: DIR_MODE });
   const temp = `${target}.${process.pid}.tmp`;
-  fs.writeFileSync(temp, JSON.stringify(state), { mode: FILE_MODE });
+  fs.writeFileSync(temp, JSON.stringify(restrictToClaude(state)), { mode: FILE_MODE });
   fs.chmodSync(temp, FILE_MODE);
   fs.renameSync(temp, target);
 }

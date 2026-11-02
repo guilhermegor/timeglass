@@ -57,6 +57,23 @@ describe('saveStorageState', () => {
     expect(loadStorageState(dir, 'work')).toEqual(state);
   });
 
+  it('keeps only claude.ai cookies and drops foreign cookies and every origin', () => {
+    const origins = [{ origin: 'https://claude.ai', localStorage: [] }, { origin: 'https://evil.example' }];
+    saveStorageState(dir, 'work', {
+      cookies: [
+        cookie({ name: 'keep', domain: '.claude.ai' }),
+        cookie({ name: 'cf', domain: '.cloudflare.com' }),
+        cookie({ name: 'sso', domain: 'accounts.google.com' }),
+        cookie({ name: 'lookalike', domain: 'notclaude.ai' }),
+      ],
+      origins,
+    });
+
+    const raw = fs.readFileSync(storageStatePath(dir, 'work'), 'utf8');
+    expect(JSON.parse(raw)).toEqual({ cookies: [cookie({ name: 'keep' })], origins: [] });
+    expect(raw).not.toContain('evil.example');
+  });
+
   it('tightens an existing wider file back to 0600 and leaves no temp file', () => {
     saveStorageState(dir, 'work', stateWith(cookie({})));
     fs.chmodSync(storageStatePath(dir, 'work'), WIDE_MODE);

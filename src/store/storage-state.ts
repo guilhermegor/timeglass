@@ -44,6 +44,14 @@ function isClaudeCookie(cookie: StorageCookie): boolean {
   return domain === CLAUDE_DOMAIN || domain.endsWith(`.${CLAUDE_DOMAIN}`);
 }
 
+/**
+ * What is worth keeping on disk: claude.ai cookies only. The API calls need nothing else, so
+ * third-party cookies (Cloudflare, analytics, SSO) and every origin's localStorage are dropped.
+ */
+export function restrictToClaude(state: StorageState): StorageState {
+  return { cookies: state.cookies.filter(isClaudeCookie), origins: [] };
+}
+
 function isFresh(cookie: StorageCookie, nowMs: number): boolean {
   return cookie.expires === SESSION_COOKIE || cookie.expires * MS_PER_SECOND > nowMs;
 }

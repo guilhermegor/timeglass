@@ -38,7 +38,9 @@ const { greet } = require('timeglass');
 
 Each Claude account is one Playwright `storageState` file, written with mode `0600` under
 `$TIMEGLASS_ACCOUNTS_DIR`, else `$XDG_CONFIG_HOME/timeglass/accounts`, else
-`~/.config/timeglass/accounts` (`defaultAccountsDir()`). A real browser opens once per
+`~/.config/timeglass/accounts` (`defaultAccountsDir()`). Only claude.ai cookies are kept:
+third-party cookies and the local storage the browser picked up during login are dropped
+before anything is written. A real browser opens once per
 account to log in; every read afterwards is plain HTTP, so no window appears.
 
 ```ts
