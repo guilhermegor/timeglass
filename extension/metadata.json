@@ -1,0 +1,7 @@
+{
+  "uuid": "timeglass@guilhermegor",
+  "name": "timeglass",
+  "description": "Top-bar icon with the active account's session % and a stacked usage popover.",
+  "shell-version": ["46", "47", "48"],
+  "version": 1
+}
