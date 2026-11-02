@@ -69,8 +69,9 @@ export function listAccounts(dir: string): string[] {
       .map((file) => file.slice(0, -STATE_SUFFIX.length))
       .filter((name) => ACCOUNT_NAME.test(name))
       .sort();
-  } catch {
-    return [];
+  } catch (error: unknown) {
+    if ((error as NodeJS.ErrnoException).code === 'ENOENT') return [];
+    throw error;
   }
 }
 

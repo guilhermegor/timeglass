@@ -39,18 +39,19 @@ export interface CliDeps {
 
 type Command = (args: readonly string[], deps: CliDeps) => Promise<number> | number;
 
-function formatContext(reports: Reports, name: string, deps: CliDeps): FormatContext {
-  return { now: deps.now ?? new Date(), timeZone: deps.timeZone, entry: reports.cache[name] };
+function formatContext(reports: Reports, name: string, now: Date, deps: CliDeps): FormatContext {
+  return { now, timeZone: deps.timeZone, entry: reports.cache[name] };
 }
 
 async function showTables(_args: readonly string[], deps: CliDeps): Promise<number> {
-  const reports = await collectReports({ ...deps });
+  const now = deps.now ?? new Date();
+  const reports = await collectReports({ ...deps, now });
   if (reports.reports.length === 0) {
     deps.out('No accounts saved. Run: timeglass add <name>');
     return EXIT_OK;
   }
   const rows = (build: typeof usageRow): string[][] =>
-    reports.reports.map((report) => build(report, formatContext(reports, report.name, deps)));
+    reports.reports.map((report) => build(report, formatContext(reports, report.name, now, deps)));
   deps.out(renderTable(USAGE_HEADERS, rows(usageRow)));
   deps.out('');
   deps.out(renderTable(BILLING_HEADERS, rows(billingRow)));
@@ -93,7 +94,9 @@ COMMANDS['-h'] = COMMANDS['--help'] as Command;
 export async function runCli(deps: CliDeps): Promise<number> {
   const [first, ...rest] = deps.argv;
   if (first === undefined) return showTables([], deps);
-  const command = Object.prototype.hasOwnProperty.call(COMMANDS, first) ? COMMANDS[first] : undefined;
+  const command = Object.prototype.hasOwnProperty.call(COMMANDS, first)
+    ? COMMANDS[first]
+    : undefined;
   if (!command) {
     deps.err(`Unknown command: ${first}\n${HELP}`);
     return EXIT_USAGE;

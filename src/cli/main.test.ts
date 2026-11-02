@@ -150,6 +150,7 @@ describe('runCli', () => {
     out = [];
     await runCli(deps([], deniedFetch));
     expect(out.join('\n')).toMatch(/work\s+unknown\s+unknown {2}resets Sat 09:30/);
+    expect(out.join('\n')).toMatch(/work\s+unknown\s+unknown\s+1 Dec 2026 \(29d\)\s+yes/);
   });
 
   it('runCli_help_printsCommandList', async () => {

@@ -137,6 +137,21 @@ smoke_cli_version() {
     print_status "success" "npx $pkg_name --version smoke passed"
 }
 
+smoke_cli_default_command() {
+    local pkg_name="$1"
+    local accounts_dir output
+    accounts_dir="$(mktemp -d "$TMP_DIR/accounts.XXXXXX")"
+    output="$(cd "$TMP_DIR" && TIMEGLASS_ACCOUNTS_DIR="$accounts_dir" npx --no-install "$pkg_name")"
+    case "$output" in
+        *"No accounts saved"*) ;;
+        *)
+            print_status "error" "npx $pkg_name printed '$output', expected 'No accounts saved'"
+            exit 1
+            ;;
+    esac
+    print_status "success" "npx $pkg_name default command smoke passed"
+}
+
 main() {
     local pkg_name
     pkg_name="$(package_name)"
@@ -151,6 +166,7 @@ main() {
     smoke_require_cjs "$pkg_name"
     smoke_import_esm "$pkg_name"
     smoke_cli_version "$pkg_name"
+    smoke_cli_default_command "$pkg_name"
 
     print_status "success" "Package tarball smoke test passed"
 }

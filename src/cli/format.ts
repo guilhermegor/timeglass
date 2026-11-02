@@ -72,6 +72,7 @@ export function usageRow(report: AccountReport, ctx: FormatContext): string[] {
 }
 
 function formatRenewal(entry: CacheEntry | undefined, now: Date, timeZone?: string): string {
+  if (entry?.managedByAdmin?.value) return MANAGED_CELL;
   if (entry && !needsFetch(entry, now)) {
     const { billingDate, daysLeft } = billingFromCache(entry, now);
     const day = new Date(billingDate).toLocaleDateString('en-GB', {
@@ -82,7 +83,7 @@ function formatRenewal(entry: CacheEntry | undefined, now: Date, timeZone?: stri
     });
     return `${day} (${daysLeft}d)`;
   }
-  return entry?.managedByAdmin?.value ? MANAGED_CELL : UNKNOWN_CELL;
+  return UNKNOWN_CELL;
 }
 
 export function billingRow(report: AccountReport, ctx: FormatContext): string[] {
