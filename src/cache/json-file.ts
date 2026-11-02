@@ -45,7 +45,9 @@ export function readJsonObjectOrNull(
   }
   try {
     const parsed: unknown = JSON.parse(raw);
-    return isPlainObject(parsed) ? parsed : null;
+    if (isPlainObject(parsed)) return parsed;
+    log.warn('ignoring non-object file', { file });
+    return null;
   } catch (err: unknown) {
     log.warn('ignoring corrupt file', {
       file,
@@ -63,11 +65,28 @@ function removeQuietly(file: string): void {
   }
 }
 
+const MAX_LINK_HOPS = 40;
+
+function resolveLinkTarget(file: string): string {
+  let current = file;
+  for (let hops = 0; hops < MAX_LINK_HOPS; hops += 1) {
+    let target: string;
+    try {
+      target = fs.readlinkSync(current);
+    } catch {
+      return current;
+    }
+    current = path.resolve(path.dirname(current), target);
+  }
+  return current;
+}
+
 export function writeJsonObject(
-  file: string,
+  link: string,
   data: JsonObject,
   log: LogEmitter = NULL_EMITTER,
 ): boolean {
+  const file = resolveLinkTarget(link);
   const tmp = `${file}.${process.pid}.${threadId}.${randomBytes(TMP_SUFFIX_BYTES).toString('hex')}.tmp`;
   try {
     fs.mkdirSync(path.dirname(file), { recursive: true, mode: PRIVATE_DIR_MODE });

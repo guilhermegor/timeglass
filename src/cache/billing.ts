@@ -50,8 +50,21 @@ const PERIODS: Record<string, BillingPeriod> = Object.assign(Object.create(null)
 
 const ISO_WITH_ZONE = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(:\d{2}(\.\d+)?)?(Z|[+-]\d{2}:\d{2})$/;
 
+const DATE_PART = /^(?<year>\d{4})-(?<month>\d{2})-(?<day>\d{2})T/;
+const DECEMBER = 12;
+
+function hasRealCalendarDay(value: string): boolean {
+  const { year, month, day } = DATE_PART.exec(value)?.groups ?? {};
+  const [y, m, d] = [Number(year), Number(month), Number(day)];
+  const lastDay = new Date(Date.UTC(y, m, 0)).getUTCDate();
+  return m >= 1 && m <= DECEMBER && d >= 1 && d <= lastDay;
+}
+
 function parseIso(value: unknown): number {
-  return typeof value === 'string' && ISO_WITH_ZONE.test(value) ? Date.parse(value) : Number.NaN;
+  if (typeof value !== 'string' || !ISO_WITH_ZONE.test(value) || !hasRealCalendarDay(value)) {
+    return Number.NaN;
+  }
+  return Date.parse(value);
 }
 
 const HTTP_UNAUTHORIZED = 401;

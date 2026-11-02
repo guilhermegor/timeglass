@@ -265,3 +265,78 @@ describe('billing cache input strictness', () => {
     expect(needsFetch(entry, NOW)).toBe(true);
   });
 });
+
+describe('review follow-ups (#32)', () => {
+  let dir: string;
+  const file = (name: string): string => path.join(dir, name);
+  beforeEach(() => {
+    dir = fs.mkdtempSync(path.join(os.tmpdir(), 'tg-followups-'));
+  });
+  afterEach(() => {
+    fs.rmSync(dir, { recursive: true, force: true });
+  });
+
+  it('rejects dates that only parse by rolling over', () => {
+    const body = { next_charge_at: '2026-02-30T00:00Z', billing_interval: 'month' };
+    expect(billingFromSubscription(OK, body).period).toBe('unknown');
+    expect(billingFromSubscription(OK, body).renewalAt).toBeNull();
+    const leap = { next_charge_at: '2028-02-29T00:00Z', billing_interval: 'month' };
+    expect(billingFromSubscription(OK, leap).renewalAt).toBe('2028-02-29T00:00:00.000Z');
+  });
+
+  it('writes through a symlinked state file instead of replacing the link', () => {
+    const real = file('real.json');
+    const link = file('billing.json');
+    fs.writeFileSync(real, '{}');
+    fs.symlinkSync(real, link);
+    const env = { CLAUDESTATUS_CACHE_FILE: link };
+    saveBillingCache({ work: { autoRenew: { value: true, readAt: 'r' } } }, { env });
+    expect(fs.lstatSync(link).isSymbolicLink()).toBe(true);
+    expect(JSON.parse(fs.readFileSync(real, 'utf8'))).toHaveProperty('work');
+  });
+
+  it('writes through a dangling symlink to its target', () => {
+    const real = file('later.json');
+    const link = file('billing.json');
+    fs.symlinkSync(real, link);
+    saveBillingCache({}, { env: { CLAUDESTATUS_CACHE_FILE: link } });
+    expect(fs.lstatSync(link).isSymbolicLink()).toBe(true);
+    expect(fs.existsSync(real)).toBe(true);
+  });
+
+});
+
+describe('state file shape (#32)', () => {
+  let dir: string;
+  const file = (name: string): string => path.join(dir, name);
+  beforeEach(() => {
+    dir = fs.mkdtempSync(path.join(os.tmpdir(), 'tg-shape-'));
+  });
+  afterEach(() => {
+    fs.rmSync(dir, { recursive: true, force: true });
+  });
+
+  it('warns on a state file holding valid non-object JSON', () => {
+    const warn = jest.fn();
+    const log = { debug: jest.fn(), info: jest.fn(), warn, error: jest.fn() };
+    fs.writeFileSync(file('billing.json'), '[1, 2]');
+    const env = { CLAUDESTATUS_CACHE_FILE: file('billing.json') };
+    expect(loadBillingCache({ env }, log)).toEqual({});
+    expect(warn).toHaveBeenCalledWith('ignoring non-object file', expect.any(Object));
+  });
+
+  it('reads the shared claudestatus billing.json fixture', () => {
+    const fixture = path.join(process.cwd(), 'src', 'cache', 'claudestatus-billing.fixture.json');
+    const cache = loadBillingCache({ env: { CLAUDESTATUS_CACHE_FILE: fixture } });
+    expect(Object.keys(cache)).toEqual(['work', 'home']);
+    expect(needsFetch(cache.work, NOW)).toBe(false);
+    expect(billingFromCache(cache.work, NOW)).toEqual({
+      billingDate: '2999-01-01T09:30:00.000Z',
+      daysLeft: expect.any(Number),
+      autoRenew: true,
+    });
+    expect(effectiveWeeklyReset(cache.work, null, NOW)).toBe('2999-01-05T00:00:00.000Z');
+    expect(cache.home.managedByAdmin?.value).toBe(true);
+    expect(needsFetch(cache.home, NOW)).toBe(true);
+  });
+});
