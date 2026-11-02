@@ -115,6 +115,7 @@ session and weekly resets. It was chosen in
 | `assets/logo/timeglass-symbolic.svg` | 16 px black icon for the GNOME top bar (also in `extension/icons/`) |
 | `assets/logo/timeglass-lockup.svg`, `-lockup-dark.svg` | mark + wordmark, text outlined to paths |
 | `assets/logo/timeglass-dark.svg` | mark in `#F1ECE2` on `#17202A` |
+| `assets/logo/timeglass-on-dark.svg` | mark in `#F1ECE2`, transparent background (docs dark navbar) |
 | `assets/logo/timeglass-{16,32,64,128,256,512}.png`, `timeglass-dark-*.png` | PNG renders |
 
 Wordmark: [Space Grotesk](https://github.com/floriankarsten/space-grotesk) 700, lowercase,

@@ -41,7 +41,7 @@ const config = {
     ({
       navbar: {
         title: 'timeglass',
-        logo: { alt: 'timeglass', src: 'timeglass.svg', srcDark: 'timeglass-dark.svg' },
+        logo: { alt: 'timeglass', src: 'timeglass.svg', srcDark: 'timeglass-on-dark.svg' },
         items: [
           {
             href: 'https://github.com/guilhermegor/timeglass',
