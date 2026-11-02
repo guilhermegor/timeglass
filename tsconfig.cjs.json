@@ -1,0 +1,15 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "module": "CommonJS",
+    // No "moduleResolution" override: TS 6 deprecates "node10" (the old default for a
+    // plain CommonJS emit) with a removal planned for TS 7. It also lifted the previous
+    // ban on pairing "module": "commonjs" with "moduleResolution": "bundler" specifically
+    // as the upgrade path off "node10" — so this inherits "bundler" from tsconfig.json
+    // (already used there for the ESM/type-check side) instead of pinning a dying value.
+    "outDir": "./dist/cjs",
+    "declaration": false,
+    "noEmit": false
+  },
+  "exclude": ["node_modules", "dist", "src/**/*.test.ts"]
+}

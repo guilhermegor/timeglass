@@ -1,0 +1,14 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "outDir": "./dist/esm",
+    "declaration": false,
+    "noEmit": false
+  },
+  // "exclude" in a referencing config REPLACES the base's, it does not merge with it —
+  // so test files must be re-excluded here (the base tsconfig.json keeps them included,
+  // for the type-check script and ESLint's parserOptions.project).
+  "exclude": ["node_modules", "dist", "src/**/*.test.ts"]
+}

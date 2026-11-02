@@ -1,0 +1,36 @@
+{
+  "editor.formatOnSave": true,
+  "editor.defaultFormatter": "esbenp.prettier-vscode",
+  "editor.codeActionsOnSave": {
+    "source.fixAll.eslint": "explicit"
+  },
+  "eslint.validate": ["javascript", "javascriptreact", "typescript", "typescriptreact"],
+  // A visible column guide per language, since the width that matters differs by file
+  // type — .prettierrc* (100), .gitlint (72/80). The bare "editor.rulers" is the fallback
+  // for everything with no section below (markdown, yaml, json, and any future extension
+  // this repo ships without updating this list) — it is not redundant with the
+  // per-language values, it is what a NEW filetype inherits. Declaring each language's 100
+  // explicitly (rather than relying on it matching the fallback) is deliberate too: written,
+  // it says "this language is 100"; inherited, it says only "nobody decided" — the two read
+  // the same today and diverge silently the day one changes.
+  "editor.rulers": [99],
+  "[typescript]": {
+    "editor.rulers": [100]
+  },
+  "[typescriptreact]": {
+    "editor.rulers": [100]
+  },
+  "[javascript]": {
+    "editor.rulers": [100]
+  },
+  "[javascriptreact]": {
+    "editor.rulers": [100]
+  },
+  "[git-commit]": {
+    "editor.rulers": [72, 80]
+  },
+  "files.exclude": {
+    "node_modules": true,
+    "dist": true
+  }
+}

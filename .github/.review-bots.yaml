@@ -1,0 +1,38 @@
+reviewers:
+  - login: coderabbitai[bot]
+    posts: threads
+    note: >-
+      Resolves its own threads on seeing the fix ("Addressed in commit <sha>"), which is why
+      isResolved cannot be the signal for whether the AUTHOR answered.
+
+  - login: greptile-apps[bot]
+    posts: threads
+    note: Posts inline review threads with a severity badge; reviews only when asked, autoReview is empty.
+
+  - login: graphite-app[bot]
+    posts: threads
+    note: >-
+      Posts a COMMENTED review with inline comments; a clean review leaves only the
+      "Graphite / AI Reviews" check run. Reviews only when the review:graphite label is added.
+
+  - login: github-actions[bot]
+    posts: status
+    note: Workflow output, never a review finding.
+
+  - login: guilhermegor-review-ladder[bot]
+    posts: threads
+    note: >-
+      The fallback reviewer ladder (codex/qwen), posting as its own GitHub App so its review is
+      a submitted review on the head commit. Without this row a ladder review is invisible to
+      the missing-review check (blueprintx#870). This trusts that App by default: replace the
+      login, or delete the row, if another App runs your ladder.
+
+  - kind: comment-marker
+    marker: "Fallback review — runtime:"
+    posters:
+      - guilhermegor-review-ladder[bot]
+    note: >-
+      The reviewer ladder's attribution line. Counts as a review only in a comment authored by
+      a login in `posters:` and posted after the head commit (docs/faq.md). The author
+      association is never consulted, so the PR author cannot forge it (blueprintx#761).
+      Empty means no marker is accepted; keep the ladder App's login listed here.

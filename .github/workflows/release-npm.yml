@@ -1,0 +1,167 @@
+name: Release to npm (OIDC Trusted Publishing)
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version to release, semver (must match package.json "version"), e.g. 1.2.3 or 1.2.3-rc.1'
+        required: true
+        type: string
+
+env:
+  PACKAGE_NAME: "timeglass"
+
+jobs:
+  details:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    outputs:
+      tag_name: ${{ steps.release.outputs.tag_name }}
+    steps:
+      - name: Validate version
+        env:
+          VERSION: ${{ inputs.version }}
+        run: |
+          if [[ ! "$VERSION" =~ ^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)(-(0|[1-9][0-9]*|[0-9]*[A-Za-z-][0-9A-Za-z-]*)(\.(0|[1-9][0-9]*|[0-9]*[A-Za-z-][0-9A-Za-z-]*))*)?$ ]]; then
+            echo "::error::Invalid version '$VERSION' — expected SemVer MAJOR.MINOR.PATCH with no leading zeroes, optionally followed by a hyphen and dot-separated non-empty prerelease identifiers (e.g. 1.2.3, 1.2.3-rc.1). Rejected: 1.2.3.rc, 1.2.3-rc., 1.2.3-rc..1, 01.2.3, 1.2.3-rc.01." >&2
+            exit 1
+          fi
+
+      - name: Extract Tag Name
+        id: release
+        env:
+          INPUT_VERSION: ${{ inputs.version }}
+        run: echo "tag_name=v$INPUT_VERSION" >> "$GITHUB_OUTPUT"
+
+  check_npm:
+    needs: details
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Guard against republishing an existing version
+        env:
+          INPUT_VERSION: ${{ inputs.version }}
+        run: |
+          published_version=$(npm view "$PACKAGE_NAME@$INPUT_VERSION" version 2>/dev/null || echo "none")
+          echo "Published version check for $INPUT_VERSION: $published_version"
+          if [ "$published_version" = "$INPUT_VERSION" ]; then
+            echo "::error::version $INPUT_VERSION is already published to npm"
+            exit 1
+          fi
+
+  release_gate:
+    name: 1.0.0 release gate
+    needs: details
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+      issues: read
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          persist-credentials: false
+
+      - name: Fail a 0.x to 1.0.0 release while open issues lack post-1.0
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          INPUT_VERSION: ${{ inputs.version }}
+        run: |
+          previous_version=$(npm view "$PACKAGE_NAME" versions --json 2>/dev/null | jq -r 'if type == "array" then .[] elif type == "string" then . else empty end' | sort -V | tail -n 1)
+          previous_version=${previous_version:-0.0.0}
+          echo "Latest version on npm: $previous_version"
+          python3 bin/check_release_gate.py --new-version "$INPUT_VERSION" --previous-version "$previous_version"
+
+  test:
+    needs: [check_npm, release_gate]
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version-file: '.nvmrc'
+          cache: 'npm'
+      - run: npm ci
+      - name: Verify release version matches package.json
+        env:
+          INPUT_VERSION: ${{ inputs.version }}
+        run: |
+          manifest_version=$(node -p "require('./package.json').version")
+          if [ "$manifest_version" != "$INPUT_VERSION" ]; then
+            echo "::error::inputs.version ($INPUT_VERSION) does not match package.json version ($manifest_version)"
+            exit 1
+          fi
+      - run: npm run lint
+      - run: npm run type-check
+      - run: npm test
+      - run: npm run build
+      - run: npm run pack:smoke
+
+  publish:
+    name: npm stage publish
+    needs: [details, test]
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    environment:
+      name: release-npm
+    permissions:
+      id-token: write
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version-file: '.nvmrc'
+          cache: false
+
+      - name: Pin npm >= 11.15.0
+        run: npm install -g npm@^11.15.0
+
+      - run: npm ci
+      - run: npm run build
+
+      - name: Stage publish
+        run: npm stage publish --access public
+
+      - name: Pack tarball for the GitHub release
+        run: npm pack
+
+      - name: Upload tarball artifact
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: npm-tarball
+          path: '*.tgz'
+
+  github_release:
+    name: Create GitHub Release
+    needs: [details, publish]
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: write
+    env:
+      TAG_NAME: ${{ needs.details.outputs.tag_name }}
+    steps:
+      - name: Download tarball artifact
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          name: npm-tarball
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@3bb12739c298aeb8a4eeaf626c5b8d85266b0e65 # v2.6.2
+        with:
+          tag_name: ${{ env.TAG_NAME }}
+          files: '*.tgz'
+          generate_release_notes: true
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+
+  docs_deploy:
+    name: Deploy docs
+    needs: github_release
+    uses: ./.github/workflows/docs-deploy.yml
+    permissions:
+      contents: read
+      pages: write
+      id-token: write

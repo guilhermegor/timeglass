@@ -1,0 +1,2 @@
+npx lint-staged
+python3 bin/check_comment_budget.py --require-baseline

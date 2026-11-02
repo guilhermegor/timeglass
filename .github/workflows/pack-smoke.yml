@@ -1,0 +1,71 @@
+name: Pack Smoke + Verdaccio Rehearsal
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  pack-smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version-file: '.nvmrc'
+          cache: 'npm'
+      - run: npm ci
+      - run: npm run build
+      - run: npm run pack:smoke
+
+  verdaccio-rehearsal:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    services:
+      verdaccio:
+        image: verdaccio/verdaccio:5
+        ports:
+          - 4873:4873
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version-file: '.nvmrc'
+          cache: 'npm'
+      - run: npm ci
+      - run: npm run build
+
+      - name: Wait for Verdaccio to be ready
+        run: |
+          for _ in $(seq 1 30); do
+            curl -sf http://localhost:4873/-/ping >/dev/null && exit 0
+            sleep 1
+          done
+          echo "::error::Verdaccio did not become ready in time" && exit 1
+
+      - name: Create a throwaway Verdaccio user token
+        run: |
+          response=$(curl -s -X PUT http://localhost:4873/-/user/org.couchdb.user:rehearsal \
+            -H "Content-Type: application/json" \
+            -d '{"name":"rehearsal","password":"rehearsal-pw","email":"rehearsal@example.com"}')
+          token=$(node -p "JSON.parse(process.argv[1]).token" "$response")
+          echo "//localhost:4873/:_authToken=$token" > .npmrc.verdaccio
+
+      - name: Publish to Verdaccio
+        run: npm publish --registry http://localhost:4873 --userconfig ./.npmrc.verdaccio
+
+      - name: Install from Verdaccio into a throwaway consumer and smoke it
+        run: |
+          pkg_name=$(node -p "require('./package.json').name")
+          consumer_dir=$(mktemp -d)
+          printf '{"name":"verdaccio-consumer","private":true}\n' > "$consumer_dir/package.json"
+          (cd "$consumer_dir" && npm install "$pkg_name" \
+            --registry http://localhost:4873 --no-audit --no-fund)
+          node -e "
+            const pkg = require('$consumer_dir/node_modules/$pkg_name');
+            if (pkg.greet('World') !== 'Hello, World!') {
+              throw new Error('Verdaccio publish/install round-trip smoke failed');
+            }
+          "
