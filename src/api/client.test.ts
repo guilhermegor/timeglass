@@ -204,7 +204,22 @@ describe('organization choice and request paths', () => {
     const snapshot = await fetchAccountSnapshot({ cookieHeader: COOKIE, fetch });
 
     expect(snapshot.organization).toMatchObject({ value: { plan: 'max' } });
-    expect(urls[1]).toContain('/max-org');
+    expect(urls.some((url) => url.endsWith('/max-org'))).toBe(true);
+  });
+
+  it('skips an org with no uuid even when its plan ranks highest', async () => {
+    const organizations = {
+      body: [
+        { capabilities: ['claude_max'] },
+        { uuid: '', capabilities: ['claude_max'] },
+        { uuid: 'pro-org', capabilities: ['claude_pro'] },
+      ],
+    };
+    const { fetch, urls } = fakeFetch({ organizations });
+    const snapshot = await fetchAccountSnapshot({ cookieHeader: COOKIE, fetch });
+
+    expect(snapshot.organization).toMatchObject({ value: { plan: 'pro' } });
+    expect(urls[1]).toBe('https://claude.ai/api/organizations/pro-org');
   });
 
   it('percent-encodes the org uuid in the path', async () => {

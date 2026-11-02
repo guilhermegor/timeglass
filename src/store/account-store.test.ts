@@ -68,6 +68,8 @@ describe('saveStorageState', () => {
     saveStorageState(dir, 'work', {
       cookies: [
         cookie({ name: 'keep', domain: '.claude.ai' }),
+        cookie({ name: 'cf_clearance', domain: '.claude.ai' }),
+        cookie({ name: 'suffix', domain: 'claude.ai.evil.example' }),
         cookie({ name: 'cf', domain: '.cloudflare.com' }),
         cookie({ name: 'sso', domain: 'accounts.google.com' }),
         cookie({ name: 'lookalike', domain: 'notclaude.ai' }),
@@ -76,7 +78,10 @@ describe('saveStorageState', () => {
     });
 
     const raw = fs.readFileSync(storageStatePath(dir, 'work'), 'utf8');
-    expect(JSON.parse(raw)).toEqual({ cookies: [cookie({ name: 'keep' })], origins: [] });
+    expect(JSON.parse(raw)).toEqual({
+      cookies: [cookie({ name: 'keep' }), cookie({ name: 'cf_clearance' })],
+      origins: [],
+    });
     expect(raw).not.toContain('evil.example');
   });
 
