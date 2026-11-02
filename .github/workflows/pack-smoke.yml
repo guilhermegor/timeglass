@@ -53,16 +53,28 @@ jobs:
           token=$(node -p "JSON.parse(process.argv[1]).token" "$response")
           echo "//localhost:4873/:_authToken=$token" > .npmrc.verdaccio
 
+      # Verdaccio proxies npmjs, so publishing the real version 409s once it
+      # exists upstream. A throwaway prerelease can never collide.
+      - name: Set a throwaway rehearsal version
+        run: |
+          base=$(node -p "require('./package.json').version")
+          rehearsal="${base}-rehearsal.${GITHUB_RUN_ID}.${GITHUB_RUN_ATTEMPT}"
+          npm version --no-git-tag-version "$rehearsal"
+          echo "REHEARSAL_VERSION=$rehearsal" >> "$GITHUB_ENV"
+
       - name: Publish to Verdaccio
-        run: npm publish --registry http://localhost:4873 --userconfig ./.npmrc.verdaccio
+        run: >-
+          npm publish --tag rehearsal --registry http://localhost:4873
+          --userconfig ./.npmrc.verdaccio
 
       - name: Install from Verdaccio into a throwaway consumer and smoke it
         run: |
           pkg_name=$(node -p "require('./package.json').name")
           consumer_dir=$(mktemp -d)
           printf '{"name":"verdaccio-consumer","private":true}\n' > "$consumer_dir/package.json"
-          (cd "$consumer_dir" && npm install "$pkg_name" \
+          (cd "$consumer_dir" && npm install "${pkg_name}@${REHEARSAL_VERSION}" \
             --registry http://localhost:4873 --no-audit --no-fund)
+          echo "Installed: $(node -p "require('$consumer_dir/node_modules/$pkg_name/package.json').version")"
           node -e "
             const pkg = require('$consumer_dir/node_modules/$pkg_name');
             if (pkg.greet('World') !== 'Hello, World!') {
