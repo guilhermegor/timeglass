@@ -1,10 +1,12 @@
+import { USER_AGENT } from '../api/user-agent.js';
+
 import type { LoginSession } from './login-session.js';
 
 const VIEWPORT_WIDTH = 1280;
 const VIEWPORT_HEIGHT = 800;
 const SIGNED_IN_URL = /claude\.ai\/(new|recents|chat|settings)/;
 const ORGANIZATIONS_PROBE =
-  "fetch('https://claude.ai/api/organizations').then((response) => response.ok).catch(() => false)";
+  "fetch('https://claude.ai/api/organizations', { signal: AbortSignal.timeout(5000) }).then((response) => response.ok).catch(() => false)";
 
 export async function openPlaywrightSession(): Promise<LoginSession> {
   const { chromium } = await import('playwright');
@@ -14,11 +16,20 @@ export async function openPlaywrightSession(): Promise<LoginSession> {
     args: ['--disable-blink-features=AutomationControlled', '--no-first-run'],
     ignoreDefaultArgs: ['--enable-automation'],
   });
-  const context = await browser.newContext({
-    viewport: { width: VIEWPORT_WIDTH, height: VIEWPORT_HEIGHT },
-    locale: 'en-US',
+  const context = await browser
+    .newContext({
+      viewport: { width: VIEWPORT_WIDTH, height: VIEWPORT_HEIGHT },
+      locale: 'en-US',
+      userAgent: USER_AGENT,
+    })
+    .catch(async (error: unknown) => {
+      await browser.close();
+      throw error;
+    });
+  const page = await context.newPage().catch(async (error: unknown) => {
+    await browser.close();
+    throw error;
   });
-  const page = await context.newPage();
 
   return {
     open: async (url) => {

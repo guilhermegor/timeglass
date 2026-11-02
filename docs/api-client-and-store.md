@@ -7,7 +7,7 @@ the login session that makes this possible.
 
 ## Logging in once
 
-`login(name, ...)` opens a real, headed browser so you can sign in to claude.ai, then stores
+`addAccount(name, ...)` opens a real, headed browser so you can sign in to claude.ai, then stores
 the session under `name`. After that no browser is needed: every reading goes over plain HTTP.
 
 - It resolves with a typed result instead of throwing. Only an invalid `name` throws, and it
@@ -40,7 +40,7 @@ Sessions live in one JSON file per account.
 ## Reading usage
 
 The client reads plan, billing and usage over HTTP with the saved cookie header. It never
-throws: each of the four endpoints degrades on its own to `unknown`, and a failed organisation
+throws: each of the three readings degrades on its own to `unknown`, and a failed organisation
 lookup degrades all three readings because nothing else can be addressed.
 
 - Each endpoint's outcome is a value (`JsonResult`), never a throw, so callers render
@@ -50,7 +50,7 @@ lookup degrades all three readings because nothing else can be addressed.
 - `fetch` defaults to the global one; inject a fake in tests. Anything with the shape of
   `Response` that the package reads will do.
 - Requests send a browser user agent because claude.ai's Cloudflare clearance cookie is bound
-  to the browser's user agent.
+  to the browser's user agent, so the login browser is launched with the same one.
 
 ### Parsing rules
 

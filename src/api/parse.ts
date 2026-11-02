@@ -28,8 +28,7 @@ export function classifyPlan(capabilities: unknown): Plan {
 export function pickOrganization(data: unknown): { uuid: string; plan: Plan } | null {
   if (!Array.isArray(data)) return null;
   const orgs = data.map(asObject).filter((org): org is Json => org !== null);
-  const chosen =
-    orgs.find((org) => classifyPlan(org.capabilities) !== 'unknown') ?? orgs[0];
+  const chosen = orgs.find((org) => classifyPlan(org.capabilities) !== 'unknown') ?? orgs[0];
   const uuid = asString(chosen?.uuid);
   return chosen && uuid ? { uuid, plan: classifyPlan(chosen.capabilities) } : null;
 }

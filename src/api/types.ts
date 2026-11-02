@@ -1,12 +1,7 @@
 export type Plan = 'free' | 'pro' | 'max' | 'team' | 'unknown';
 
 export type UnknownReason =
-  | 'unauthorized'
-  | 'forbidden'
-  | 'challenge'
-  | 'malformed'
-  | 'network'
-  | 'http_error';
+  'unauthorized' | 'forbidden' | 'challenge' | 'malformed' | 'network' | 'http_error';
 
 export type Reading<T> =
   | { state: 'ok'; value: T }
@@ -49,5 +44,5 @@ export interface FetchResponse {
 
 export type FetchLike = (
   url: string,
-  init: { headers: Record<string, string> },
+  init: { headers: Record<string, string>; signal?: AbortSignal },
 ) => Promise<FetchResponse>;

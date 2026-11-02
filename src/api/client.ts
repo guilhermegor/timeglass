@@ -2,18 +2,10 @@ import { NULL_EMITTER, type LogEmitter } from '../utils/log-emitter.js';
 
 import { requestJson, type JsonResult } from './http.js';
 import { parseSubscription, parseUsage, pickOrganization, toOrganization } from './parse.js';
-import type {
-  AccountSnapshot,
-  FetchLike,
-  Reading,
-  Subscription,
-  UnknownReason,
-} from './types.js';
+import type { AccountSnapshot, FetchLike, Reading, Subscription, UnknownReason } from './types.js';
+import { USER_AGENT } from './user-agent.js';
 
 const CLAUDE_URL = 'https://claude.ai';
-const USER_AGENT =
-  'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) ' +
-  'Chrome/121.0.0.0 Safari/537.36';
 
 export interface ClientOptions {
   cookieHeader: string;

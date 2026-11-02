@@ -21,7 +21,7 @@ export function defaultAccountsDir(env: NodeJS.ProcessEnv = process.env): string
 }
 
 export function assertValidAccountName(name: string): void {
-  if (!ACCOUNT_NAME.test(name)) {
+  if (!ACCOUNT_NAME.test(name) || name.endsWith(STATE_SUFFIX)) {
     throw new Error('Invalid account name: use 1-64 letters, digits, dot, dash or underscore.');
   }
 }
@@ -34,10 +34,20 @@ export function storageStatePath(dir: string, name: string): string {
 export function saveStorageState(dir: string, name: string, state: StorageState): void {
   const target = storageStatePath(dir, name);
   fs.mkdirSync(dir, { recursive: true, mode: DIR_MODE });
+  fs.chmodSync(dir, DIR_MODE);
   const temp = `${target}.${process.pid}.tmp`;
-  fs.writeFileSync(temp, JSON.stringify(restrictToClaude(state)), { mode: FILE_MODE });
-  fs.chmodSync(temp, FILE_MODE);
-  fs.renameSync(temp, target);
+  fs.rmSync(temp, { force: true });
+  try {
+    fs.writeFileSync(temp, JSON.stringify(restrictToClaude(state)), {
+      mode: FILE_MODE,
+      flag: 'wx',
+    });
+    fs.chmodSync(temp, FILE_MODE);
+    fs.renameSync(temp, target);
+  } catch (error: unknown) {
+    fs.rmSync(temp, { force: true });
+    throw error;
+  }
 }
 
 export function loadStorageState(dir: string, name: string): StorageState | null {
