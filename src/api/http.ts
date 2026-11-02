@@ -25,10 +25,9 @@ function failure(reason: UnknownReason, permissionDenied = false): JsonResult {
   return { ok: false, reason, permissionDenied };
 }
 
-function isChallenge(response: FetchResponse, body: string): boolean {
+function isChallenge(response: FetchResponse, body: string, isJson: boolean): boolean {
   if (response.headers.get('cf-mitigated') === 'challenge') return true;
-  if ((response.headers.get('content-type') ?? '').includes('text/html')) return true;
-  return CHALLENGE_MARKERS.some((marker) => body.includes(marker));
+  return !isJson && CHALLENGE_MARKERS.some((marker) => body.includes(marker));
 }
 
 function parseJson(body: string): { parsed: true; data: unknown } | { parsed: false } {
@@ -46,9 +45,9 @@ function isPermissionError(data: unknown): boolean {
 
 function classify(response: FetchResponse, body: string): JsonResult {
   if (response.status === HTTP_UNAUTHORIZED) return failure('unauthorized');
-  if (isChallenge(response, body)) return failure('challenge');
-
   const json = parseJson(body);
+  if (isChallenge(response, body, json.parsed)) return failure('challenge');
+
   if (response.status === HTTP_FORBIDDEN) {
     return failure('forbidden', json.parsed && isPermissionError(json.data));
   }
