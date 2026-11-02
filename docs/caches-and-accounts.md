@@ -92,3 +92,15 @@ Each path function takes `PathOptions` (`homeDir`, `env`) so tests never touch t
   cache the result if you call it in a hot loop.
 - **Dates.** Renewal and reset timestamps must be ISO 8601 with a `Z` or an offset; anything
   else is treated as missing.
+- **Corrupt labels file.** `setLabel` and `renameLabel` return `false` and leave an
+  unreadable or corrupt `labels.json` untouched, so a typo is never wiped by the next write.
+  Values other tools keep in that file are preserved. The billing cache is derived data, so a
+  corrupt one is rebuilt on the next save.
+- **No TTL.** A cached entry is trusted until its renewal date passes; `readAt` is recorded
+  for the caller. A cancellation or plan change made meanwhile is not seen until then, so
+  refetch on demand when that matters.
+- **Shared org.** Active-account detection matches the organization UUID only, so two
+  accounts in one organization read as `unknown`.
+- **Plain objects.** `loadBillingCache` and `readLabels` return objects without a prototype;
+  use `Object.hasOwn`/`in` rather than `obj.hasOwnProperty`. `billingFromCache` throws on an
+  entry for which `needsFetch` is true, so test that first.
