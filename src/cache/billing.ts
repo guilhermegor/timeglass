@@ -40,13 +40,13 @@ export interface BillingRead {
   paid?: boolean | null;
 }
 
-const PERIODS: Record<string, BillingPeriod> = {
+const PERIODS: Record<string, BillingPeriod> = Object.assign(Object.create(null) as object, {
   month: 'monthly',
   monthly: 'monthly',
   year: 'annual',
   yearly: 'annual',
   annual: 'annual',
-};
+}) as Record<string, BillingPeriod>;
 
 const ISO_WITH_ZONE = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(:\d{2}(\.\d+)?)?(Z|[+-]\d{2}:\d{2})$/;
 
@@ -132,7 +132,7 @@ export function recordWeeklyReset(
 }
 
 function futureTime(field: Stamped<string> | undefined, now: Date): number | null {
-  const t = field ? Date.parse(field.value) : Number.NaN;
+  const t = field ? parseIso(field.value) : Number.NaN;
   return t > now.getTime() ? t : null;
 }
 
