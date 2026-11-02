@@ -51,6 +51,9 @@ smoke_require_cjs() {
       if (calls.length !== 1 || calls[0][0] !== 'cjs pack smoke') {
         throw new Error('CJS smoke failed: CONSOLE_EMITTER did not delegate to console.info');
       }
+      if (pkg.detectActiveAccount([], { homeDir: '/nonexistent-timeglass-smoke', env: {} }) !== 'unknown') {
+        throw new Error('CJS smoke failed: detectActiveAccount should be unknown');
+      }
     ")
     print_status "success" "require('$pkg_name') (CJS) smoke passed"
 }
@@ -58,7 +61,7 @@ smoke_require_cjs() {
 smoke_import_esm() {
     local pkg_name="$1"
     (cd "$TMP_DIR" && node --input-type=module -e "
-      import { greet, NULL_EMITTER, CONSOLE_EMITTER } from '$pkg_name';
+      import { greet, NULL_EMITTER, CONSOLE_EMITTER, detectActiveAccount } from '$pkg_name';
       if (greet('World') !== 'Hello, World!') {
         throw new Error('ESM import smoke failed: unexpected greet() output');
       }
@@ -74,6 +77,9 @@ smoke_import_esm() {
       console.info = originalInfo;
       if (calls.length !== 1 || calls[0][0] !== 'esm pack smoke') {
         throw new Error('ESM smoke failed: CONSOLE_EMITTER did not delegate to console.info');
+      }
+      if (detectActiveAccount([], { homeDir: '/nonexistent-timeglass-smoke', env: {} }) !== 'unknown') {
+        throw new Error('ESM smoke failed: detectActiveAccount should be unknown');
       }
     ")
     print_status "success" "import('$pkg_name') (ESM) smoke passed"
