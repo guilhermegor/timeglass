@@ -34,6 +34,61 @@ import { greet } from 'timeglass';
 const { greet } = require('timeglass');
 ```
 
+## Accounts and the claude.ai API client
+
+Each Claude account is one Playwright `storageState` file, written with mode `0600` under
+`$TIMEGLASS_ACCOUNTS_DIR`, else `$XDG_CONFIG_HOME/timeglass/accounts`, else
+`~/.config/timeglass/accounts` (`defaultAccountsDir()`). A real browser opens once per
+account to log in; every read afterwards is plain HTTP, so no window appears.
+
+```ts
+import {
+  addAccount,
+  defaultAccountsDir,
+  fetchAccountSnapshot,
+  loadCookieHeader,
+  CONSOLE_EMITTER,
+} from 'timeglass';
+
+const dir = defaultAccountsDir();
+
+// One-time login: opens Chrome at claude.ai/login, saves the session once you are signed in.
+const added = await addAccount('work', { dir, logger: CONSOLE_EMITTER });
+// -> { state: 'added' } | { state: 'timeout' } | { state: 'failed', message }
+
+// Afterwards, plain HTTP:
+const cookieHeader = loadCookieHeader(dir, 'work'); // null when there is no usable session
+if (cookieHeader) {
+  const snapshot = await fetchAccountSnapshot({ cookieHeader });
+  // snapshot.organization, snapshot.subscription, snapshot.usage
+}
+```
+
+`fetchAccountSnapshot` calls `/api/organizations`, `/api/organizations/<org>`,
+`.../subscription_details` and `.../usage`, and **never throws**. Each part of the snapshot is a
+`Reading`:
+
+| `state`            | Meaning                                                              |
+| ------------------ | -------------------------------------------------------------------- |
+| `ok`               | `value` holds the parsed data                                        |
+| `managed_by_admin` | `subscription_details` answered 403 `permission_error` (Team member) |
+| `unknown`          | `reason` is `unauthorized`, `forbidden`, `challenge`, `malformed`, `network` or `http_error` |
+
+A 401, a 403, malformed JSON, a network error and a Cloudflare challenge page each become
+`unknown` with the matching `reason`; a failed organisation lookup makes all three readings
+`unknown` because nothing else can be addressed. Render `unknown` as "unknown", never as a guess.
+`unauthorized` is the cue to run `addAccount` again.
+
+Calls accept a `logger` (a `LogEmitter`, default `NULL_EMITTER`) and an injectable `fetch`.
+Log lines carry only the endpoint label, HTTP status and reason: never a cookie, token,
+`payment_method` field or org uuid. The saved session is also never refreshed from response
+`Set-Cookie` headers; when claude.ai rotates it, the reading turns `unauthorized` and the
+account needs `addAccount` again.
+
+The browser login uses your installed Chrome (`channel: 'chrome'`) with a fresh, non-persistent
+profile, so the only thing written to disk is the `0600` session file. `playwright` is loaded
+lazily and only by `addAccount`.
+
 ## Running tests and lint locally
 
 ```bash
