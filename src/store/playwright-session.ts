@@ -4,9 +4,13 @@ import type { LoginSession } from './login-session.js';
 
 const VIEWPORT_WIDTH = 1280;
 const VIEWPORT_HEIGHT = 800;
-const SIGNED_IN_URL = /claude\.ai\/(new|recents|chat|settings)/;
+const SIGNED_IN_URL = /^https:\/\/claude\.ai\/(new|recents|chat|settings)([/?#]|$)/;
 const ORGANIZATIONS_PROBE =
   "fetch('https://claude.ai/api/organizations', { signal: AbortSignal.timeout(5000) }).then((response) => response.ok).catch(() => false)";
+
+export function isSignedInUrl(url: string): boolean {
+  return SIGNED_IN_URL.test(url);
+}
 
 export async function openPlaywrightSession(): Promise<LoginSession> {
   const { chromium } = await import('playwright');
@@ -36,7 +40,7 @@ export async function openPlaywrightSession(): Promise<LoginSession> {
       await page.goto(url, { waitUntil: 'domcontentloaded' });
     },
     isLoggedIn: async () =>
-      SIGNED_IN_URL.test(page.url()) || (await page.evaluate(ORGANIZATIONS_PROBE)) === true,
+      isSignedInUrl(page.url()) || (await page.evaluate(ORGANIZATIONS_PROBE)) === true,
     storageState: () => context.storageState(),
     close: () => browser.close(),
   };
