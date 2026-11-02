@@ -50,9 +50,9 @@ Opening the popover only reads local files: it never calls the API. Only Refresh
 
 The extension runs `node <main.js> model|refresh|add <name>|label <name> [text]`, where `main.js`
 is `dist/esm/popover/main.js` from `helper.json`. Output is a JSON model on stdout; failures
-come back as the last stderr line and exit code. The same entry point is exported from the
-library code as `runPopoverCommand`, which never writes to the console itself: only `main.js`
-prints. A shell-local `node` must be on `PATH` (an asdf shim is the fallback).
+come back as the last stderr line and exit code. The same entry point is `runPopoverCommand`
+in `src/popover/entry.ts` (internal, not re-exported from the package barrel); it never writes to
+the console itself: only `main.js` prints. A shell-local `node` must be on `PATH` (an asdf shim is the fallback).
 
 ## Known limits
 

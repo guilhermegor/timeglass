@@ -17,20 +17,28 @@ function readMainPath(extensionPath) {
 
 function run(mainPath, args, done) {
     const nodeBin = GLib.find_program_in_path('node') ?? `${GLib.get_home_dir()}/.asdf/shims/node`;
-    const proc = Gio.Subprocess.new(
-        [nodeBin, mainPath, ...args],
-        Gio.SubprocessFlags.STDOUT_PIPE | Gio.SubprocessFlags.STDERR_PIPE);
+    let proc;
+    try {
+        proc = Gio.Subprocess.new(
+            [nodeBin, mainPath, ...args],
+            Gio.SubprocessFlags.STDOUT_PIPE | Gio.SubprocessFlags.STDERR_PIPE);
+    } catch (e) {
+        globalThis.logError(e, 'timeglass');
+        done(null, `cannot start node: ${e.message}`);
+        return;
+    }
     proc.communicate_utf8_async(null, null, (p, res) => {
+        let result;
         try {
             const [, out, err] = p.communicate_utf8_finish(res);
-            if (p.get_successful())
-                done(out);
-            else
-                done(null, (err || '').trim().split('\n').pop() || `exit ${p.get_exit_status()}`);
+            result = p.get_successful()
+                ? [out, null]
+                : [null, (err || '').trim().split('\n').pop() || `exit ${p.get_exit_status()}`];
         } catch (e) {
             globalThis.logError(e, 'timeglass');
-            done(null, e.message);
+            result = [null, e.message];
         }
+        done(...result);
     });
 }
 
@@ -164,12 +172,17 @@ class Indicator extends PanelMenu.Button {
             this._blocks.removeAll();
             if (failure)
                 this._blocks.addMenuItem(new PopupMenu.PopupMenuItem(`✗ ${failure}`, {reactive: false}));
-            if (!out) {
+            let model = null;
+            try {
+                model = out ? JSON.parse(out) : null;
+            } catch (e) {
+                globalThis.logError(e, 'timeglass');
+            }
+            if (!model) {
                 this._label.text = '—';
-                this._blocks.addMenuItem(new PopupMenu.PopupMenuItem('timeglass failed (is node on PATH?)', {reactive: false}));
+                this._blocks.addMenuItem(new PopupMenu.PopupMenuItem(`timeglass failed: ${failure ?? 'no model output'}`, {reactive: false}));
                 return;
             }
-            const model = JSON.parse(out);
             this._label.text = model.bar;
             this._blocks.addMenuItem(new PopupMenu.PopupMenuItem(model.activeLine, {reactive: false}));
             if (model.recommended)
@@ -183,7 +196,15 @@ class Indicator extends PanelMenu.Button {
 
 export default class TimeglassExtension extends Extension {
     enable() {
-        this._indicator = new Indicator(readMainPath(this.path), `${this.path}/icons/timeglass-symbolic.svg`);
+        let mainPath;
+        try {
+            mainPath = readMainPath(this.path);
+        } catch (e) {
+            globalThis.logError(e, 'timeglass');
+            Main.notify('timeglass', 'helper.json missing or unreadable: run timeglass install-extension');
+            return;
+        }
+        this._indicator = new Indicator(mainPath, `${this.path}/icons/timeglass-symbolic.svg`);
         Main.panel.addToStatusArea(this.uuid, this._indicator);
     }
 

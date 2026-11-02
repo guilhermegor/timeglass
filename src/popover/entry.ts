@@ -40,7 +40,7 @@ function showModel(options: EntryOptions): EntryResult {
 
 async function addByName(name: string, options: EntryOptions): Promise<EntryResult> {
   const result = await addAccount(name, {
-    dir: defaultAccountsDir(options.env),
+    dir: options.accountsDir ?? defaultAccountsDir(options.env),
     ...(options.logger && { logger: options.logger }),
   });
   if (result.state === 'added') return ok();

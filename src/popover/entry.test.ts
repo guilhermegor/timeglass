@@ -65,6 +65,19 @@ describe('runPopoverCommand', () => {
     expect(account?.error).toMatch(/Not logged in/);
   });
 
+  it('refresh records a rejected request as a network error, not a crash', async () => {
+    const { accountsDir, opts } = sandbox();
+    const state = {
+      cookies: [{ name: 's', value: 'v', domain: '.claude.ai', path: '/', expires: -1 }],
+      origins: [],
+    };
+    fs.writeFileSync(path.join(accountsDir, 'acme.storage.json'), JSON.stringify(state));
+    const down = (): Promise<never> => Promise.reject(new Error('getaddrinfo ENOTFOUND api.claude.ai'));
+    expect((await runPopoverCommand(['refresh'], { ...opts, fetch: down })).code).toBe(0);
+    const [account] = loadUsageSnapshot(opts).accounts;
+    expect(account?.error).toMatch(/Usage unavailable \(network\)/);
+  });
+
   it('refresh records a failed usage read as an error', async () => {
     const { accountsDir, opts } = sandbox();
     const state = {

@@ -106,7 +106,7 @@ function accountText(
   const { at, now, active } = context;
   const badge = (account.plan === 'free' ? '  ⚠ unpaid' : '') + (active ? '  ● active' : '');
   const head = `${label}  ${planName(account)}${badge}`;
-  if (account.error) return `${head}\n✗ ${account.error.split('.')[0]}`;
+  if (account.error) return `${head}\n✗ ${account.error}`;
   const weeklyReset = effectiveWeeklyReset(entry, account.weekly?.resetsAt, now);
   return [
     head,
