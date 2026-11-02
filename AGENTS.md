@@ -137,6 +137,15 @@ install + require/import) plus a Verdaccio rehearsal job that publishes to and
 installs from a self-hosted registry — npm's stand-in for Test PyPI, since no
 hosted test registry exists and published versions are immutable.
 
+⚠️ **The rehearsal publishes a throwaway prerelease, not `package.json`'s version.** The stock
+`verdaccio/verdaccio:5` image proxies npmjs, so publishing a version that already exists upstream
+409s, and an unpinned consumer install could resolve the upstream package instead of the tarball
+just built. The job therefore runs `npm version --no-git-tag-version
+<version>-rehearsal.$GITHUB_RUN_ID.$GITHUB_RUN_ATTEMPT`, publishes with `--tag rehearsal`, and the
+consumer installs `timeglass@<that exact version>` — never the bare name. Chosen over a Verdaccio
+config without an uplink because it does not depend on that config and can never collide with a
+real npm version (blueprintx#934).
+
 ## Do not
 
 - Do not deep-import from `dist/` or `src/` in consumer code — import from the package name.
