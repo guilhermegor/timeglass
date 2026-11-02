@@ -10,5 +10,7 @@ module.exports = {
       { configFile: path.join(__dirname, 'babel.config.test.cjs') },
     ],
   },
+  // Source imports carry the `.js` extension Node ESM requires; Jest resolves the `.ts` file.
+  moduleNameMapper: { '^(\\.{1,2}/.*)\\.js$': '$1' },
   moduleFileExtensions: ['ts', 'js', 'json'],
 };
