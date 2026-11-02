@@ -58,10 +58,7 @@ describe('saveStorageState', () => {
   });
 
   it('keeps only claude.ai cookies and drops foreign cookies and every origin', () => {
-    const origins = [
-      { origin: 'https://claude.ai', localStorage: [] },
-      { origin: 'https://evil.example' },
-    ];
+    const origins = [{ origin: 'https://claude.ai', localStorage: [] }, { origin: 'https://evil.example' }];
     saveStorageState(dir, 'work', {
       cookies: [
         cookie({ name: 'keep', domain: '.claude.ai' }),

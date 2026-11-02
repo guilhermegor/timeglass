@@ -19,7 +19,9 @@ export interface AddAccountOptions {
 }
 
 export type AddAccountResult =
-  { state: 'added' } | { state: 'timeout' } | { state: 'failed'; message: string };
+  | { state: 'added' }
+  | { state: 'timeout' }
+  | { state: 'failed'; message: string };
 
 function pause(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
