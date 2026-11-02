@@ -1,4 +1,11 @@
 <!-- readme-archetype: library -->
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="assets/logo/timeglass-lockup-dark.svg">
+    <img src="assets/logo/timeglass-lockup.svg" alt="timeglass" height="64">
+  </picture>
+</p>
+
 # timeglass
 
 [![Project Status: Active](https://www.repostatus.org/badges/latest/active.svg)](https://www.repostatus.org/#active)
@@ -92,6 +99,27 @@ publish. The path from 0.x to 1.0.0, and the release gate that guards it, is in
 ## Contributing
 
 See `docs/contributing.md` for the branch, commit and release rules.
+
+<!-- slug: logo -->
+## Logo
+
+The mark is an hourglass of tokens: the top bulb holds the tokens remaining (amber), one token
+falls through the neck, and the bottom bulb holds the tokens spent (muted). It nods to the
+session and weekly resets. It was chosen in
+[guilhermegor/dotfiles-linux-dev#753](https://github.com/guilhermegor/dotfiles-linux-dev/issues/753)
+(option B) and is released under the MIT licence, the same as the code.
+
+| File | Use |
+|---|---|
+| `assets/logo/timeglass.svg` | full-colour mark, 64 px and up |
+| `assets/logo/timeglass-symbolic.svg` | 16 px black icon for the GNOME top bar (also in `extension/icons/`) |
+| `assets/logo/timeglass-lockup.svg`, `-lockup-dark.svg` | mark + wordmark, text outlined to paths |
+| `assets/logo/timeglass-dark.svg` | mark in `#F1ECE2` on `#17202A` |
+| `assets/logo/timeglass-{16,32,64,128,256,512}.png`, `timeglass-dark-*.png` | PNG renders |
+
+Wordmark: [Space Grotesk](https://github.com/floriankarsten/space-grotesk) 700, lowercase,
+letter-spacing -0.02em, outlined so no font is needed at render time (the font is SIL OFL 1.1).
+Colours: ink `#17202A`, amber `#E8A33D`, paper `#F1ECE2`.
 
 <!-- slug: license -->
 ## License

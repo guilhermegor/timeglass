@@ -6,6 +6,9 @@ const config = {
   tagline: 'AI subscription usage and billing across vendors and accounts: CLI + GNOME top-bar',
   url: 'https://guilhermegor.github.io',
   baseUrl: '/timeglass/',
+  favicon: 'timeglass.svg',
+  // The logo assets are served as-is from the site root instead of being copied under docs/.
+  staticDirectories: ['assets/logo'],
   organizationName: 'guilhermegor',
   projectName: 'timeglass',
   onBrokenLinks: 'throw',
@@ -39,6 +42,7 @@ const config = {
     ({
       navbar: {
         title: 'timeglass',
+        logo: { alt: 'timeglass', src: 'timeglass.svg', srcDark: 'timeglass-dark.svg' },
         items: [
           {
             href: 'https://github.com/guilhermegor/timeglass',
