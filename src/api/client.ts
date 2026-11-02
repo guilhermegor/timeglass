@@ -46,7 +46,7 @@ export async function fetchAccountSnapshot(options: ClientOptions): Promise<Acco
     return { organization: unknown(reason), subscription: unknown(reason), usage: unknown(reason) };
   }
 
-  const base = `/api/organizations/${org.uuid}`;
+  const base = `/api/organizations/${encodeURIComponent(org.uuid)}`;
   const [detail, subscription, usage] = await Promise.all([
     get('organization', base),
     get('subscription_details', `${base}/subscription_details`),
