@@ -304,6 +304,27 @@ describe('review follow-ups (#32)', () => {
     expect(fs.existsSync(real)).toBe(true);
   });
 
+  it('resolves ".." through a symlinked parent directory like the kernel', () => {
+    const realDir = file('dotfiles');
+    fs.mkdirSync(path.join(realDir, 'cfg'), { recursive: true });
+    fs.symlinkSync(path.join(realDir, 'cfg'), file('cfg-link'));
+    fs.writeFileSync(path.join(realDir, 'real.json'), '{}');
+    fs.symlinkSync('../real.json', path.join(realDir, 'cfg', 'billing.json'));
+    const link = path.join(file('cfg-link'), 'billing.json');
+    saveBillingCache({ work: { autoRenew: { value: true, readAt: 'r' } } }, { env: { CLAUDESTATUS_CACHE_FILE: link } });
+    expect(JSON.parse(fs.readFileSync(path.join(realDir, 'real.json'), 'utf8'))).toHaveProperty('work');
+    expect(fs.existsSync(file('real.json'))).toBe(false);
+  });
+
+  it('leaves a symlink loop untouched and writes nothing', () => {
+    const a = file('a.json');
+    const b = file('b.json');
+    fs.symlinkSync(b, a);
+    fs.symlinkSync(a, b);
+    saveBillingCache({}, { env: { CLAUDESTATUS_CACHE_FILE: a } });
+    expect(fs.lstatSync(a).isSymbolicLink()).toBe(true);
+    expect(fs.lstatSync(b).isSymbolicLink()).toBe(true);
+  });
 });
 
 describe('state file shape (#32)', () => {

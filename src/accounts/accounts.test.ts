@@ -82,7 +82,6 @@ describe('labels', () => {
     setLabel('work', '  ', opts());
     expect(readLabels(opts())).toEqual({});
   });
-
 });
 
 describe('labels on unusual files', () => {
@@ -95,6 +94,14 @@ describe('labels on unusual files', () => {
     expect(setLabel('work', 'W', opts(), log)).toBe(false);
     expect(fs.readFileSync(file, 'utf8')).toBe('["x"]');
     expect(warn).toHaveBeenCalledWith('ignoring non-object file', expect.any(Object));
+  });
+
+  it('refuses to rename in a labels file holding non-object JSON', () => {
+    const file = path.join(home, '.config', 'claudestatus-bar', 'labels.json');
+    fs.mkdirSync(path.dirname(file), { recursive: true });
+    fs.writeFileSync(file, '["x"]');
+    expect(renameLabel('work', 'other', opts())).toBe(false);
+    expect(fs.readFileSync(file, 'utf8')).toBe('["x"]');
   });
 
   it('writes a label through a symlinked labels.json', () => {

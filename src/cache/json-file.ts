@@ -67,18 +67,30 @@ function removeQuietly(file: string): void {
 
 const MAX_LINK_HOPS = 40;
 
-function resolveLinkTarget(file: string): string {
-  let current = file;
+function realParentDir(file: string): string {
+  const dir = path.dirname(file);
+  try {
+    return fs.realpathSync(dir);
+  } catch (err: unknown) {
+    if (errorCode(err) === 'ENOENT') return dir;
+    throw err;
+  }
+}
+
+function resolveLinkTarget(link: string): string {
+  let current = link;
   for (let hops = 0; hops < MAX_LINK_HOPS; hops += 1) {
     let target: string;
     try {
       target = fs.readlinkSync(current);
-    } catch {
-      return current;
+    } catch (err: unknown) {
+      const code = errorCode(err);
+      if (code === 'EINVAL' || code === 'ENOENT') return current;
+      throw err;
     }
-    current = path.resolve(path.dirname(current), target);
+    current = path.resolve(realParentDir(current), target);
   }
-  return current;
+  throw Object.assign(new Error('too many symlink hops'), { code: 'ELOOP' });
 }
 
 export function writeJsonObject(
@@ -86,9 +98,11 @@ export function writeJsonObject(
   data: JsonObject,
   log: LogEmitter = NULL_EMITTER,
 ): boolean {
-  const file = resolveLinkTarget(link);
-  const tmp = `${file}.${process.pid}.${threadId}.${randomBytes(TMP_SUFFIX_BYTES).toString('hex')}.tmp`;
+  let file = link;
+  let tmp = '';
   try {
+    file = resolveLinkTarget(link);
+    tmp = `${file}.${process.pid}.${threadId}.${randomBytes(TMP_SUFFIX_BYTES).toString('hex')}.tmp`;
     fs.mkdirSync(path.dirname(file), { recursive: true, mode: PRIVATE_DIR_MODE });
     fs.writeFileSync(tmp, `${JSON.stringify(data, null, 2)}\n`, {
       mode: PRIVATE_FILE_MODE,
@@ -97,7 +111,7 @@ export function writeJsonObject(
     fs.renameSync(tmp, file);
     return true;
   } catch (err: unknown) {
-    removeQuietly(tmp);
+    if (tmp) removeQuietly(tmp);
     log.error('cannot write file', { file, code: errorCode(err) });
     return false;
   }

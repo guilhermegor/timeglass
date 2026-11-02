@@ -85,14 +85,17 @@ Each path function takes `PathOptions` (`homeDir`, `env`) so tests never touch t
   the latest write. Directories are created `0700`.
 - **Symlinked state files are written through.** A write follows the link chain and renames
   the temp file over the final target, so the link survives. The temp file sits beside the
-  target, so that directory must be writable.
+  target, so that directory must be writable, and it is created (`0700`) if missing. The target
+  is replaced by a new `0600` file, so its original mode and hard links are not kept. A link
+  loop, or a permission error while resolving, makes the write return `false` and changes nothing.
 - **Unusable files are left alone.** A state file that is corrupt, or valid JSON that is not
   an object, is reported through the log emitter and read as empty. `setLabel` and
   `renameLabel` return `false` rather than overwrite it.
 - **Dates must exist.** Timestamps are checked against the calendar, so `2026-02-30` is
   rejected instead of rolling over to 2 March.
-- **Shape fixture.** `src/cache/claudestatus-billing.fixture.json` mirrors the file the
-  dotfiles `claudestatus` tool shares; a test loads it, so a shape change fails CI.
+- **Shape fixture.** `src/cache/claudestatus-billing.fixture.json` is a hand-made copy of
+  the file the dotfiles `claudestatus` tool shares; a test loads it, so a shape change made in
+  timeglass fails CI. A change made upstream in `claudestatus` is not caught.
 - **Relative paths are ignored.** A relative `$CLAUDESTATUS_CACHE_FILE`, `$XDG_CACHE_HOME` or
   `$XDG_CONFIG_HOME` falls back to the default location, as the XDG spec requires.
 - **Admin-managed accounts.** `managedByAdmin` is recorded for the caller's use but
