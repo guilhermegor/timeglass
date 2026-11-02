@@ -1,8 +1,3 @@
-/**
- * Subscription-API mapping and the per-account date cache. The cache stores absolute UTC
- * timestamps and booleans only, each with the time it was read (`readAt`) -- never cookies,
- * tokens, emails or page text. Ported from claudestatus_billing.mjs.
- */
 import { NULL_EMITTER, type LogEmitter } from '../utils/log-emitter.js';
 
 import {
@@ -65,11 +60,6 @@ interface SubscriptionBody {
   error?: { type?: unknown };
 }
 
-/**
- * Maps one `subscription_details` response (HTTP status + parsed body, or null) to billing
- * facts. A 403 `permission_error` means a team member who is not the billing admin: a fact
- * about the account, not a failure.
- */
 export function billingFromSubscription(status: number, body: unknown): SubscriptionBilling {
   const none: SubscriptionBilling = {
     period: 'unknown',
@@ -97,16 +87,10 @@ function stamp<T>(value: T, now: Date): Stamped<T> {
   return { value, readAt: now.toISOString() };
 }
 
-/** An account name that would resolve to `Object.prototype` (or its members) when used as a key. */
 function isUnsafeKey(name: string): boolean {
   return name === '__proto__' || name === 'constructor' || name === 'prototype';
 }
 
-/**
- * Records only values actually read; a null never overwrites a good cached value. The admin
- * flag is dropped on a fresh date or once the account is confirmed free (`paid === false`);
- * a failed request carries neither, so it keeps the flag.
- */
 export function recordBilling(
   cache: BillingCache,
   name: string,
@@ -122,7 +106,6 @@ export function recordBilling(
   cache[name] = entry;
 }
 
-/** Only a FUTURE reset is remembered; a past one must not clobber a good cached value. */
 export function recordWeeklyReset(
   cache: BillingCache,
   name: string,
@@ -141,13 +124,11 @@ function futureTime(field: Stamped<string> | undefined, now: Date): number | nul
   return t > now.getTime() ? t : null;
 }
 
-/** A fetch is needed only when the renewal date is missing or past, or auto-renew never read. */
 export function needsFetch(entry: CacheEntry | undefined, now: Date = new Date()): boolean {
   if (!entry) return true;
   return futureTime(entry.renewalAt, now) === null || typeof entry.autoRenew?.value !== 'boolean';
 }
 
-/** Call only when `needsFetch(entry)` is false. */
 export function billingFromCache(entry: CacheEntry, now: Date = new Date()) {
   const t = futureTime(entry.renewalAt, now);
   if (t === null || typeof entry.autoRenew?.value !== 'boolean') {
@@ -160,7 +141,6 @@ export function billingFromCache(entry: CacheEntry, now: Date = new Date()) {
   };
 }
 
-/** Prefer the live API reset when it is a future time, else the cached one, else null. */
 export function effectiveWeeklyReset(
   entry: CacheEntry | undefined,
   apiResetsAt: string | null | undefined,
@@ -172,7 +152,6 @@ export function effectiveWeeklyReset(
   return cached === null ? null : new Date(cached).toISOString();
 }
 
-/** Loads the billing cache; a missing or corrupt file degrades to `{}`. Never throws. */
 export function loadBillingCache(
   opts: PathOptions = {},
   log: LogEmitter = NULL_EMITTER,

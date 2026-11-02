@@ -6,10 +6,8 @@ import {
 } from '../cache/json-file.js';
 import { NULL_EMITTER, type LogEmitter } from '../utils/log-emitter.js';
 
-/** Account name -> human label. */
 export type Labels = Record<string, string>;
 
-/** Reads labels; non-string values and a corrupt file are dropped. Never throws. */
 export function readLabels(opts: PathOptions = {}, log: LogEmitter = NULL_EMITTER): Labels {
   const raw = readJsonObject(labelsPath(opts), log);
   return Object.fromEntries(
@@ -17,7 +15,6 @@ export function readLabels(opts: PathOptions = {}, log: LogEmitter = NULL_EMITTE
   );
 }
 
-/** Sets (or, for an empty label, clears) one account's label. Returns false if the write failed. */
 export function setLabel(
   account: string,
   label: string,
@@ -31,10 +28,6 @@ export function setLabel(
   return writeJsonObject(labelsPath(opts), labels, log);
 }
 
-/**
- * Moves a label to a renamed account. No-op (true) when the old account has no label;
- * false when the write failed or the new name already carries a different label.
- */
 export function renameLabel(
   oldName: string,
   newName: string,

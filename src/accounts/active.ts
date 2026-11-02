@@ -20,12 +20,6 @@ function readOrganizationUuid(file: string): string | null {
   }
 }
 
-/**
- * Name of the account Claude Code is logged in as, matched on the stable org UUID
- * (`oauthAccount.organizationUuid` in `.claude.json` vs each account's `orgUuid`).
- * A missing or malformed file, no match, or an ambiguous match is `"unknown"`; never throws.
- * The UUID is never logged or returned.
- */
 export function detectActiveAccount(
   accounts: readonly AccountRef[],
   opts: PathOptions = {},
