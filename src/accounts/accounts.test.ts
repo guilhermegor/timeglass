@@ -91,4 +91,12 @@ describe('labels', () => {
     expect(readLabels(opts())).toEqual({ b: 'B', c: 'A' });
     expect(renameLabel('missing', 'x', opts())).toBe(true);
   });
+
+  it('treats __proto__ and constructor as ordinary account names', () => {
+    expect(setLabel('__proto__', 'P', opts())).toBe(true);
+    expect(readLabels(opts())).toEqual({ ['__proto__']: 'P' });
+    setLabel('a', 'A', opts());
+    expect(renameLabel('a', 'constructor', opts())).toBe(true);
+    expect(Object.keys(readLabels(opts())).sort()).toEqual(['__proto__', 'constructor']);
+  });
 });

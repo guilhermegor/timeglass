@@ -91,6 +91,10 @@ function isUnsafeKey(name: string): boolean {
   return name === '__proto__' || name === 'constructor' || name === 'prototype';
 }
 
+function ownEntry(cache: BillingCache, name: string): CacheEntry {
+  return (Object.prototype.hasOwnProperty.call(cache, name) ? cache[name] : undefined) ?? {};
+}
+
 export function recordBilling(
   cache: BillingCache,
   name: string,
@@ -98,7 +102,7 @@ export function recordBilling(
   now: Date = new Date(),
 ): void {
   if (isUnsafeKey(name)) return;
-  const entry = cache[name] ?? {};
+  const entry = ownEntry(cache, name);
   if (read.renewalAt || read.paid === false) delete entry.managedByAdmin;
   if (read.renewalAt) entry.renewalAt = stamp(read.renewalAt, now);
   else if (read.managedByAdmin === true) entry.managedByAdmin = stamp(true, now);
@@ -114,7 +118,7 @@ export function recordWeeklyReset(
 ): void {
   if (isUnsafeKey(name) || !resetsAt || !(Date.parse(resetsAt) > now.getTime())) return;
   cache[name] = {
-    ...(cache[name] ?? {}),
+    ...ownEntry(cache, name),
     weeklyResetAt: stamp(new Date(resetsAt).toISOString(), now),
   };
 }
@@ -152,11 +156,40 @@ export function effectiveWeeklyReset(
   return cached === null ? null : new Date(cached).toISOString();
 }
 
+const STAMPED_FIELD_TYPES = {
+  renewalAt: 'string',
+  autoRenew: 'boolean',
+  managedByAdmin: 'boolean',
+  weeklyResetAt: 'string',
+} as const;
+
+function isStamped(field: unknown, type: string): field is Stamped<string | boolean> {
+  if (typeof field !== 'object' || field === null) return false;
+  const { value, readAt } = field as Partial<Stamped<unknown>>;
+  return typeof value === type && typeof readAt === 'string';
+}
+
+function sanitizeEntry(raw: unknown): CacheEntry | undefined {
+  if (typeof raw !== 'object' || raw === null || Array.isArray(raw)) return undefined;
+  const source = raw as Record<string, unknown>;
+  const entry: Record<string, Stamped<string | boolean>> = {};
+  for (const [key, type] of Object.entries(STAMPED_FIELD_TYPES)) {
+    const field = source[key];
+    if (isStamped(field, type)) entry[key] = { value: field.value, readAt: field.readAt };
+  }
+  return entry as CacheEntry;
+}
+
 export function loadBillingCache(
   opts: PathOptions = {},
   log: LogEmitter = NULL_EMITTER,
 ): BillingCache {
-  return readJsonObject(billingCachePath(opts), log) as BillingCache;
+  const cache: BillingCache = Object.create(null) as BillingCache;
+  for (const [name, raw] of Object.entries(readJsonObject(billingCachePath(opts), log))) {
+    const entry = isUnsafeKey(name) ? undefined : sanitizeEntry(raw);
+    if (entry) cache[name] = entry;
+  }
+  return cache;
 }
 
 export function saveBillingCache(

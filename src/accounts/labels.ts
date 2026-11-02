@@ -10,9 +10,11 @@ export type Labels = Record<string, string>;
 
 export function readLabels(opts: PathOptions = {}, log: LogEmitter = NULL_EMITTER): Labels {
   const raw = readJsonObject(labelsPath(opts), log);
-  return Object.fromEntries(
-    Object.entries(raw).filter((entry): entry is [string, string] => typeof entry[1] === 'string'),
-  );
+  const labels: Labels = Object.create(null) as Labels;
+  for (const [account, label] of Object.entries(raw)) {
+    if (typeof label === 'string') labels[account] = label;
+  }
+  return labels;
 }
 
 export function setLabel(

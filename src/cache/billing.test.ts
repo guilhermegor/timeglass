@@ -21,6 +21,8 @@ const FORBIDDEN = 403;
 const SERVER_ERROR = 500;
 const PERMISSION_BITS = 0o777;
 const DAYS_LEFT = 24;
+const BAD_VALUE = 5;
+const own = (o: object, k: string): boolean => Object.prototype.hasOwnProperty.call(o, k);
 const NOW = new Date('2026-10-12T12:00:00Z');
 
 describe('billingFromSubscription', () => {
@@ -177,5 +179,46 @@ describe('billing cache decisions', () => {
     expect(team.f?.managedByAdmin?.value).toBe(true);
     recordBilling(team, 'f', { managedByAdmin: false, paid: false }, NOW);
     expect(team.f?.managedByAdmin).toBeUndefined();
+  });
+});
+
+describe('billing cache hardening', () => {
+  let home: string;
+  const opts = () => ({ homeDir: home, env: {} });
+
+  beforeEach(() => {
+    home = fs.mkdtempSync(path.join(os.tmpdir(), 'tg-billing-'));
+  });
+  afterEach(() => {
+    fs.rmSync(home, { recursive: true, force: true });
+  });
+
+  it('drops malformed cache entries so recording never throws', () => {
+    const file = billingCachePath(opts());
+    fs.mkdirSync(path.dirname(file), { recursive: true });
+    fs.writeFileSync(
+      file,
+      JSON.stringify({
+        str: 'x',
+        arr: [],
+        bad: { renewalAt: { value: BAD_VALUE, readAt: 'r' }, autoRenew: 'yes' },
+        ok: { autoRenew: { value: true, readAt: 'r' } },
+      }),
+    );
+    const cache = loadBillingCache(opts());
+    expect(cache.str).toBeUndefined();
+    expect(cache.arr).toBeUndefined();
+    expect(cache.bad).toEqual({});
+    expect(cache.ok?.autoRenew?.value).toBe(true);
+    expect(() =>
+      recordBilling(cache, 'str', { renewalAt: '2026-11-05T12:00:00.000Z' }, NOW),
+    ).not.toThrow();
+  });
+
+  it('never writes billing fields onto inherited Object.prototype members', () => {
+    const cache: BillingCache = {};
+    recordBilling(cache, 'toString', { renewalAt: '2026-11-05T12:00:00.000Z' }, NOW);
+    expect(own(Object.prototype.toString, 'renewalAt')).toBe(false);
+    expect(own(cache, 'toString')).toBe(true);
   });
 });
