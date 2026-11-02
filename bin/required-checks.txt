@@ -7,3 +7,4 @@ jest
 type-check
 gitleaks — repo history
 pack-smoke
+verdaccio-rehearsal
