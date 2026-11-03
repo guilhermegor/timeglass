@@ -56,7 +56,9 @@ const DECEMBER = 12;
 function hasRealCalendarDay(value: string): boolean {
   const { year, month, day } = DATE_PART.exec(value)?.groups ?? {};
   const [y, m, d] = [Number(year), Number(month), Number(day)];
-  const lastDay = new Date(Date.UTC(y, m, 0)).getUTCDate();
+  const end = new Date(0);
+  end.setUTCFullYear(y, m, 0);
+  const lastDay = end.getUTCDate();
   return m >= 1 && m <= DECEMBER && d >= 1 && d <= lastDay;
 }
 

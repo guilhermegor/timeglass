@@ -327,6 +327,46 @@ describe('review follow-ups (#32)', () => {
   });
 });
 
+const KERNEL_HOP_LIMIT = 40;
+
+describe('symlink resolution (#32)', () => {
+  let dir: string;
+  const file = (name: string): string => path.join(dir, name);
+  beforeEach(() => {
+    dir = fs.mkdtempSync(path.join(os.tmpdir(), 'tg-link-'));
+  });
+  afterEach(() => {
+    fs.rmSync(dir, { recursive: true, force: true });
+  });
+
+  it('resolves ".." after a symlinked component inside the link target', () => {
+    const realDir = file('tree');
+    fs.mkdirSync(path.join(realDir, 'a', 'b'), { recursive: true });
+    fs.writeFileSync(path.join(realDir, 'a', 'state.json'), '{}');
+    fs.symlinkSync(path.join(realDir, 'a', 'b'), file('dirlink'));
+    const link = file('billing.json');
+    fs.symlinkSync(`${file('dirlink')}/../state.json`, link);
+    saveBillingCache({ work: {} }, { env: { CLAUDESTATUS_CACHE_FILE: link } });
+    expect(JSON.parse(fs.readFileSync(path.join(realDir, 'a', 'state.json'), 'utf8'))).toHaveProperty('work');
+    expect(fs.existsSync(file('state.json'))).toBe(false);
+  });
+
+  it('accepts a chain of exactly 40 links and a leap day in year 0000', () => {
+    const real = file('end.json');
+    fs.writeFileSync(real, '{}');
+    let prev = real;
+    for (let i = 0; i < KERNEL_HOP_LIMIT; i += 1) {
+      const next = file(`hop${i}.json`);
+      fs.symlinkSync(prev, next);
+      prev = next;
+    }
+    saveBillingCache({ work: {} }, { env: { CLAUDESTATUS_CACHE_FILE: prev } });
+    expect(JSON.parse(fs.readFileSync(real, 'utf8'))).toHaveProperty('work');
+    const body = { next_charge_at: '0000-02-29T00:00Z', billing_interval: 'month' };
+    expect(billingFromSubscription(OK, body).renewalAt).not.toBeNull();
+  });
+});
+
 describe('state file shape (#32)', () => {
   let dir: string;
   const file = (name: string): string => path.join(dir, name);
@@ -347,7 +387,7 @@ describe('state file shape (#32)', () => {
   });
 
   it('reads the shared claudestatus billing.json fixture', () => {
-    const fixture = path.join(process.cwd(), 'src', 'cache', 'claudestatus-billing.fixture.json');
+    const fixture = path.join(__dirname, 'claudestatus-billing.fixture.json');
     const cache = loadBillingCache({ env: { CLAUDESTATUS_CACHE_FILE: fixture } });
     expect(Object.keys(cache)).toEqual(['work', 'home']);
     expect(needsFetch(cache.work, NOW)).toBe(false);

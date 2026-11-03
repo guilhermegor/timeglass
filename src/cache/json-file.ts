@@ -70,7 +70,7 @@ const MAX_LINK_HOPS = 40;
 function realParentDir(file: string): string {
   const dir = path.dirname(file);
   try {
-    return fs.realpathSync(dir);
+    return fs.realpathSync.native(dir);
   } catch (err: unknown) {
     if (errorCode(err) === 'ENOENT') return dir;
     throw err;
@@ -79,7 +79,7 @@ function realParentDir(file: string): string {
 
 function resolveLinkTarget(link: string): string {
   let current = link;
-  for (let hops = 0; hops < MAX_LINK_HOPS; hops += 1) {
+  for (let hops = 0; hops <= MAX_LINK_HOPS; hops += 1) {
     let target: string;
     try {
       target = fs.readlinkSync(current);
@@ -88,7 +88,8 @@ function resolveLinkTarget(link: string): string {
       if (code === 'EINVAL' || code === 'ENOENT') return current;
       throw err;
     }
-    current = path.resolve(realParentDir(current), target);
+    const raw = path.isAbsolute(target) ? target : `${realParentDir(current)}${path.sep}${target}`;
+    current = path.join(realParentDir(raw), path.basename(raw));
   }
   throw Object.assign(new Error('too many symlink hops'), { code: 'ELOOP' });
 }
