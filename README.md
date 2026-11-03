@@ -44,6 +44,14 @@ import { greet } from 'timeglass';
 greet('World'); // "Hello, World!"
 ```
 
+Command line:
+
+```bash
+npx timeglass add work   # one-time browser login
+npx timeglass            # usage and billing tables for every saved account
+npx timeglass --version
+```
+
 <!-- slug: project-structure -->
 ## Project Structure
 

@@ -16,6 +16,14 @@ function welcomeMessage(str_userName: string): string {
 console.log(welcomeMessage('Ada')); // "Hello, Ada!"
 ```
 
+## Recipe: add an account and print the tables
+
+```bash
+npx timeglass add work     # opens Chrome once; sign in to claude.ai
+npx timeglass              # usage and billing tables for every saved account
+npx timeglass --version
+```
+
 ## Recipe: add a new public export
 
 Add the function to `src/`, then re-export it from `src/index.ts` — that barrel is the

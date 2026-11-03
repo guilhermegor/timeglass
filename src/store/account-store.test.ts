@@ -179,6 +179,11 @@ describe('listAccounts and removeAccount', () => {
     expect(listAccounts(dir)).toEqual([]);
   });
 
+  it('rethrows a directory read failure that is not a missing directory', () => {
+    fs.writeFileSync(dir, 'x');
+    expect(() => listAccounts(dir)).toThrow();
+  });
+
   it('removes a session and tolerates removing it twice', () => {
     saveStorageState(dir, 'work', stateWith());
     removeAccount(dir, 'work');
