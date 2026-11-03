@@ -5,6 +5,7 @@ import { addAccount } from '../store/login.js';
 import type { LogEmitter } from '../utils/log-emitter.js';
 
 import { billingRow, usageRow, type FormatContext } from './format.js';
+import { installExtension, type InstallExtensionOptions } from './install-extension.js';
 import { collectReports, type Reports } from './report.js';
 import { renderTable } from './table.js';
 
@@ -19,6 +20,7 @@ const HELP = [
   '',
   '  (none)        print usage and billing tables for every saved account',
   '  add <name>    log in to claude.ai in a browser and save the account',
+  '  install-extension  install the GNOME top-bar extension',
   '  --version     print the version',
   '  --help        print this help',
 ].join('\n');
@@ -35,6 +37,7 @@ export interface CliDeps {
   now?: Date;
   timeZone?: string;
   openSession?: () => Promise<LoginSession>;
+  extension?: InstallExtensionOptions;
 }
 
 type Command = (args: readonly string[], deps: CliDeps) => Promise<number> | number;
@@ -76,8 +79,19 @@ async function add(args: readonly string[], deps: CliDeps): Promise<number> {
   }
 }
 
+function installGnomeExtension(_args: readonly string[], deps: CliDeps): number {
+  try {
+    deps.out(installExtension(deps.extension).instructions);
+    return EXIT_OK;
+  } catch (error: unknown) {
+    deps.err(error instanceof Error ? error.message : 'Could not install the extension.');
+    return EXIT_FAILED;
+  }
+}
+
 const COMMANDS: Record<string, Command> = {
   add,
+  'install-extension': installGnomeExtension,
   '--version': (_args, deps) => {
     deps.out(deps.version);
     return EXIT_OK;

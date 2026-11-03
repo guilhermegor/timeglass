@@ -176,3 +176,24 @@ describe('runCli add', () => {
     expect(err.join('\n')).toContain('Login failed: no chrome');
   });
 });
+
+describe('runCli install-extension', () => {
+  it('installs the extension and prints the enable instructions', async () => {
+    const packageRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'tg-pkg-'));
+    fs.writeFileSync(path.join(packageRoot, 'package.json'), '{"name":"timeglass"}');
+    fs.mkdirSync(path.join(packageRoot, 'extension'));
+    fs.writeFileSync(path.join(packageRoot, 'extension', 'metadata.json'), '{}');
+    fs.mkdirSync(path.join(packageRoot, 'dist', 'esm', 'popover'), { recursive: true });
+    fs.writeFileSync(path.join(packageRoot, 'dist', 'esm', 'popover', 'main.js'), '');
+    const targetRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'tg-ext-'));
+    const lines: string[] = [];
+    const base = deps(['install-extension']);
+    const code = await runCli({
+      ...base,
+      out: (text) => lines.push(text),
+      extension: { packageRoot, targetRoot },
+    });
+    expect(code).toBe(0);
+    expect(lines.join('\n')).toContain('gnome-extensions enable');
+  });
+});
