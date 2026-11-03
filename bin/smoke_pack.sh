@@ -152,6 +152,76 @@ smoke_cli_default_command() {
     print_status "success" "npx $pkg_name default command smoke passed"
 }
 
+run_install_extension() {
+    local pkg_name="$1"
+    local data_home="$2"
+    local output
+    if ! output="$(cd "$TMP_DIR" && HOME="$data_home" XDG_DATA_HOME="$data_home" npx --no-install "$pkg_name" install-extension 2>&1)"; then
+        print_status "error" "npx $pkg_name install-extension failed from the installed tarball: $output"
+        exit 1
+    fi
+}
+
+assert_extension_installed() {
+    local installed="$1"
+    local package_dir="$2"
+    local file
+    for file in metadata.json extension.js; do
+        if [ ! -f "$installed/$file" ]; then
+            print_status "error" "install-extension did not install $file into $installed; check package.json \"files\", that extension/ exists, and the uuid in metadata.json"
+            exit 1
+        fi
+    done
+    if ! node -e "
+      const fs = require('fs');
+      const path = require('path');
+      try {
+        const main = require(process.argv[1]).main;
+        const root = fs.realpathSync(process.argv[2]);
+        const ok = path.isAbsolute(main) && fs.realpathSync(main).startsWith(root + path.sep);
+        if (!ok) process.exit(1);
+      } catch {
+        process.exit(1);
+      }
+    " "$installed/helper.json" "$package_dir"; then
+        print_status "error" "install-extension wrote no helper.json, or its \"main\" is not an existing absolute path inside $package_dir"
+        exit 1
+    fi
+}
+
+seed_stale_install() {
+    local installed="$1"
+    printf '{"main":"/nonexistent"}\n' > "$installed/helper.json"
+    : > "$installed/stale-sentinel"
+}
+
+assert_stale_files_replaced() {
+    local installed="$1"
+    if [ -e "$installed/stale-sentinel" ]; then
+        print_status "error" "reinstall left a stale file behind in $installed; the install must replace the directory, not merge into it"
+        exit 1
+    fi
+}
+
+smoke_extension_installs() {
+    local pkg_name="$1"
+    local data_home package_dir uuid installed
+    data_home="$(mktemp -d "$TMP_DIR/data.XXXXXX")"
+    package_dir="$TMP_DIR/node_modules/$pkg_name"
+    if ! uuid="$(node -p "require(process.argv[1]).uuid || ''" "$package_dir/extension/metadata.json")" || [[ ! "$uuid" =~ ^[A-Za-z0-9_@-][A-Za-z0-9._@-]*$ ]]; then
+        print_status "error" "extension/metadata.json is missing from the tarball, unparsable, or has no valid uuid; check package.json \"files\""
+        exit 1
+    fi
+    installed="$data_home/gnome-shell/extensions/$uuid"
+    run_install_extension "$pkg_name" "$data_home"
+    assert_extension_installed "$installed" "$package_dir"
+    seed_stale_install "$installed"
+    run_install_extension "$pkg_name" "$data_home"
+    assert_extension_installed "$installed" "$package_dir"
+    assert_stale_files_replaced "$installed"
+    print_status "success" "npx $pkg_name install-extension smoke passed (fresh install and reinstall over a stale one)"
+}
+
 main() {
     local pkg_name
     pkg_name="$(package_name)"
@@ -167,6 +237,7 @@ main() {
     smoke_import_esm "$pkg_name"
     smoke_cli_version "$pkg_name"
     smoke_cli_default_command "$pkg_name"
+    smoke_extension_installs "$pkg_name"
 
     print_status "success" "Package tarball smoke test passed"
 }

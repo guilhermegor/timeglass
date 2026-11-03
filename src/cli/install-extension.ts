@@ -38,7 +38,11 @@ export function findPackageRoot(start: string | undefined): string {
 }
 
 export function defaultExtensionsDir(env: NodeJS.ProcessEnv = process.env): string {
-  const data = env.XDG_DATA_HOME || path.join(os.homedir(), '.local', 'share');
+  const xdg = env.XDG_DATA_HOME;
+  const data =
+    xdg && path.isAbsolute(xdg)
+      ? xdg
+      : path.join(env.HOME || os.homedir(), '.local', 'share');
   return path.join(data, 'gnome-shell', 'extensions');
 }
 
