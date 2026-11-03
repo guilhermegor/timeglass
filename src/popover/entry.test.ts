@@ -92,3 +92,15 @@ describe('runPopoverCommand', () => {
     expect(account?.error).toMatch(/Usage unavailable/);
   });
 });
+
+describe('runPopoverCommand refresh persistence', () => {
+  it('refresh exits non-zero when the results cannot be saved', async () => {
+    const { home, opts } = sandbox();
+    const blocker = path.join(home, 'blocker');
+    fs.writeFileSync(blocker, 'x');
+    const env = { ...opts.env, XDG_CACHE_HOME: path.join(blocker, 'cache') };
+    const result = await runPopoverCommand(['refresh'], { ...opts, env });
+    expect(result.code).toBe(1);
+    expect(result.stderr).toMatch(/Could not save/);
+  });
+});

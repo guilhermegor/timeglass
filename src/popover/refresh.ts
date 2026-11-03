@@ -88,7 +88,8 @@ export async function refreshUsage(options: RefreshOptions = {}): Promise<UsageS
     accounts.push(await refreshAccount(name, cache, options, dir));
   }
   const snapshot = { at: (options.now ?? new Date()).toISOString(), accounts };
-  saveBillingCache(cache, options, log);
-  saveUsageSnapshot(snapshot, options, log);
+  if (!saveBillingCache(cache, options, log) || !saveUsageSnapshot(snapshot, options, log)) {
+    throw new Error('Could not save the refreshed usage data.');
+  }
   return snapshot;
 }

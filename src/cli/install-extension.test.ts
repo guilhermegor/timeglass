@@ -30,6 +30,18 @@ describe('installExtension', () => {
     expect(result.instructions).toContain(`gnome-extensions enable ${EXTENSION_UUID}`);
   });
 
+  it('keeps the working install when the new copy fails', () => {
+    const packageRoot = makePackage();
+    fs.rmSync(path.join(packageRoot, 'dist'), { recursive: true });
+    const targetRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'tg-ext-'));
+    const kept = path.join(targetRoot, EXTENSION_UUID, 'kept.txt');
+    fs.mkdirSync(path.dirname(kept), { recursive: true });
+    fs.writeFileSync(kept, 'x');
+    expect(() => installExtension({ packageRoot, targetRoot })).toThrow(/Run the build first/);
+    expect(fs.existsSync(kept)).toBe(true);
+    expect(fs.existsSync(`${path.dirname(kept)}.new`)).toBe(false);
+  });
+
   it('replaces a previous install instead of merging into it', () => {
     const packageRoot = makePackage();
     const targetRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'tg-ext-'));

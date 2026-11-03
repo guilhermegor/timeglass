@@ -16,7 +16,8 @@
     }
   },
   "files": [
-    "dist"
+    "dist",
+    "extension"
   ],
   "repository": {
     "type": "git",

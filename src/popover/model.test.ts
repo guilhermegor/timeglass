@@ -1,7 +1,7 @@
 import type { BillingCache } from '../cache/billing.js';
 
 import fixture from './fixture.json';
-import { countdown, resetAt } from './format.js';
+import { ago, countdown, resetAt } from './format.js';
 import { buildPopoverModel, recommend } from './model.js';
 import type { SnapshotAccount, UsageSnapshot } from './snapshot.js';
 
@@ -96,7 +96,25 @@ describe('recommend', () => {
   });
 });
 
+describe('recommend without readings', () => {
+  it('skips an account that has neither a session nor a weekly window', () => {
+    const blank: SnapshotAccount = { name: 'blank', plan: 'pro' };
+    const real: SnapshotAccount = {
+      name: 'real',
+      plan: 'pro',
+      session: { utilization: 1, resetsAt: null },
+    };
+    expect(recommend([blank, real], now)?.name).toBe('real');
+    expect(recommend([blank], now)).toBeNull();
+  });
+});
+
 describe('time formatting', () => {
+  it('treats a snapshot stamped slightly in the future as just now, not never', () => {
+    expect(ago('2026-10-12T10:00:30Z', new Date('2026-10-12T10:00:00Z'))).toBe('just now');
+    expect(ago('not a date', now)).toBe('never');
+  });
+
   it('clamps a past time to now', () => {
     expect(countdown('2026-10-12T11:00:00Z', now)).toBe('now');
   });

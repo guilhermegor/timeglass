@@ -166,8 +166,10 @@ class Indicator extends PanelMenu.Button {
     }
 
     _reload(failure = null) {
-        run(this._main, ['model'], out => {
-            if (this._destroyed)
+        const generation = (this._generation ?? 0) + 1;
+        this._generation = generation;
+        run(this._main, ['model'], (out, err) => {
+            if (this._destroyed || generation !== this._generation)
                 return;
             this._blocks.removeAll();
             if (failure)
@@ -180,7 +182,7 @@ class Indicator extends PanelMenu.Button {
             }
             if (!model) {
                 this._label.text = '—';
-                this._blocks.addMenuItem(new PopupMenu.PopupMenuItem(`timeglass failed: ${failure ?? 'no model output'}`, {reactive: false}));
+                this._blocks.addMenuItem(new PopupMenu.PopupMenuItem(`timeglass failed: ${failure ?? err ?? 'no model output'}`, {reactive: false}));
                 return;
             }
             this._label.text = model.bar;

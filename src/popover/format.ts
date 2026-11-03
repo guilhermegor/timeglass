@@ -51,7 +51,7 @@ export function resetAt(iso: string, now: Date, timeZone?: string): string {
 
 export function ago(iso: string, now: Date): string {
   const ms = now.getTime() - Date.parse(iso);
-  if (!(ms >= 0)) return 'never';
+  if (Number.isNaN(ms)) return 'never';
   if (ms < MINUTE) return 'just now';
   if (ms < HOUR) return `${Math.floor(ms / MINUTE)} min ago`;
   if (ms < DAY) return `${Math.floor(ms / HOUR)} h ago`;

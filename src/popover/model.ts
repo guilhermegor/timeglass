@@ -54,7 +54,7 @@ export function recommend(
   now: Date = new Date(),
 ): SnapshotAccount | null {
   const scored = accounts
-    .filter((a) => !a.error && a.plan !== 'free')
+    .filter((a) => !a.error && a.plan !== 'free' && (a.session || a.weekly))
     .map((account) => ({
       account,
       score: sessionPercent(account) + (account.weekly?.utilization ?? 0),

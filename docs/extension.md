@@ -21,7 +21,7 @@ Then restart GNOME Shell (log out and back in on Wayland) and run
 
 ## What the popover shows
 
-Per account, in the order the accounts were added:
+Per account, sorted by account name:
 
 - Session and weekly usage bars with a countdown and the absolute reset time, for example
   `resets in 4h39m (today 21:44)`. Days are labelled `today`, `tomorrow`, the weekday, and from
@@ -41,10 +41,10 @@ session plus weekly sum; when all are exhausted it takes the one that frees up f
 
 - **Refresh** fetches every stored account and rewrites `usage.json` (next to the billing cache,
   or `TIMEGLASS_USAGE_FILE`) and the billing cache in a single pass.
-- **Add account** opens a dialog for the name and runs the browser login.
+- **Add account** opens a dialog for the name, runs the browser login, and then runs Refresh.
 - The pencil button on an account edits its display label inline; an empty label removes it.
 
-Opening the popover only reads local files: it never calls the API. Only Refresh does.
+Opening the popover only reads local files: it never calls the API. Only Refresh does, including the one that follows Add account.
 
 ## How the extension talks to the library
 

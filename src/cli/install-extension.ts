@@ -50,9 +50,12 @@ export function installExtension(options: InstallExtensionOptions = {}): Install
   }
   if (!fs.existsSync(main)) throw new Error(`Run the build first: ${main} is missing.`);
   const target = path.join(options.targetRoot ?? defaultExtensionsDir(), EXTENSION_UUID);
+  const staging = `${target}.new`;
+  fs.rmSync(staging, { recursive: true, force: true });
+  fs.cpSync(source, staging, { recursive: true });
+  fs.writeFileSync(path.join(staging, HELPER_FILE), `${JSON.stringify({ main })}\n`);
   fs.rmSync(target, { recursive: true, force: true });
-  fs.cpSync(source, target, { recursive: true });
-  fs.writeFileSync(path.join(target, HELPER_FILE), `${JSON.stringify({ main })}\n`);
+  fs.renameSync(staging, target);
   const enableCommand = `gnome-extensions enable ${EXTENSION_UUID}`;
   return {
     installedTo: target,
