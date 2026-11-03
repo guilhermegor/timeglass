@@ -131,17 +131,21 @@ describe('addAccount cancellation', () => {
 
   it('cancels at once, without waiting for a hung probe, and closes the browser', async () => {
     const session = fakeSession(0);
-    session.isLoggedIn = () => new Promise<boolean>(() => undefined);
     const controller = new AbortController();
-    const pending = addAccount('work', {
+    session.isLoggedIn = () => {
+      session.probes += 1;
+      controller.abort();
+      return new Promise<boolean>(() => undefined);
+    };
+    const result = await addAccount('work', {
       dir,
       sleep,
       signal: controller.signal,
       openSession: () => Promise.resolve(session),
     });
-    controller.abort();
 
-    expect(await pending).toEqual({ state: 'failed', message: 'Login cancelled.' });
+    expect(result).toEqual({ state: 'failed', message: 'Login cancelled.' });
+    expect(session.probes).toBe(1);
     expect(session.closed).toBe(true);
   });
 });
