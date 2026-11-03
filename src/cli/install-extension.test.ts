@@ -78,3 +78,19 @@ describe('findPackageRoot', () => {
     expect(() => findPackageRoot(path.join(other, 'x.js'))).toThrow(/Cannot locate/);
   });
 });
+
+describe('installExtension paths', () => {
+  it('writes an absolute helper path even when packageRoot is relative', () => {
+    const packageRoot = makePackage();
+    const targetRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'tg-ext-'));
+    const result = installExtension({
+      packageRoot: path.relative(process.cwd(), packageRoot),
+      targetRoot,
+    });
+    const helper = JSON.parse(
+      fs.readFileSync(path.join(result.installedTo, 'helper.json'), 'utf8'),
+    ) as { main: string };
+    expect(path.isAbsolute(helper.main)).toBe(true);
+    expect(helper.main).toBe(path.join(packageRoot, 'dist', 'esm', 'popover', 'main.js'));
+  });
+});

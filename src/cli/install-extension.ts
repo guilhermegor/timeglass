@@ -42,7 +42,7 @@ export function defaultExtensionsDir(env: NodeJS.ProcessEnv = process.env): stri
 }
 
 export function installExtension(options: InstallExtensionOptions = {}): InstallExtensionResult {
-  const root = options.packageRoot ?? findPackageRoot(process.argv[1] ?? '');
+  const root = path.resolve(options.packageRoot ?? findPackageRoot(process.argv[1] ?? ''));
   const source = path.join(root, 'extension');
   const main = path.join(root, 'dist', 'esm', 'popover', 'main.js');
   if (!fs.existsSync(path.join(source, 'metadata.json'))) {
