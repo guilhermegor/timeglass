@@ -265,3 +265,139 @@ describe('billing cache input strictness', () => {
     expect(needsFetch(entry, NOW)).toBe(true);
   });
 });
+
+describe('review follow-ups (#32)', () => {
+  let dir: string;
+  const file = (name: string): string => path.join(dir, name);
+  beforeEach(() => {
+    dir = fs.mkdtempSync(path.join(os.tmpdir(), 'tg-followups-'));
+  });
+  afterEach(() => {
+    fs.rmSync(dir, { recursive: true, force: true });
+  });
+
+  it('rejects dates that only parse by rolling over', () => {
+    const body = { next_charge_at: '2026-02-30T00:00Z', billing_interval: 'month' };
+    expect(billingFromSubscription(OK, body).period).toBe('unknown');
+    expect(billingFromSubscription(OK, body).renewalAt).toBeNull();
+    const leap = { next_charge_at: '2028-02-29T00:00Z', billing_interval: 'month' };
+    expect(billingFromSubscription(OK, leap).renewalAt).toBe('2028-02-29T00:00:00.000Z');
+  });
+
+  it('writes through a symlinked state file instead of replacing the link', () => {
+    const real = file('real.json');
+    const link = file('billing.json');
+    fs.writeFileSync(real, '{}');
+    fs.symlinkSync(real, link);
+    const env = { CLAUDESTATUS_CACHE_FILE: link };
+    saveBillingCache({ work: { autoRenew: { value: true, readAt: 'r' } } }, { env });
+    expect(fs.lstatSync(link).isSymbolicLink()).toBe(true);
+    expect(JSON.parse(fs.readFileSync(real, 'utf8'))).toHaveProperty('work');
+  });
+
+  it('writes through a dangling symlink to its target', () => {
+    const real = file('later.json');
+    const link = file('billing.json');
+    fs.symlinkSync(real, link);
+    saveBillingCache({}, { env: { CLAUDESTATUS_CACHE_FILE: link } });
+    expect(fs.lstatSync(link).isSymbolicLink()).toBe(true);
+    expect(fs.existsSync(real)).toBe(true);
+  });
+
+  it('resolves ".." through a symlinked parent directory like the kernel', () => {
+    const realDir = file('dotfiles');
+    fs.mkdirSync(path.join(realDir, 'cfg'), { recursive: true });
+    fs.symlinkSync(path.join(realDir, 'cfg'), file('cfg-link'));
+    fs.writeFileSync(path.join(realDir, 'real.json'), '{}');
+    fs.symlinkSync('../real.json', path.join(realDir, 'cfg', 'billing.json'));
+    const link = path.join(file('cfg-link'), 'billing.json');
+    saveBillingCache({ work: { autoRenew: { value: true, readAt: 'r' } } }, { env: { CLAUDESTATUS_CACHE_FILE: link } });
+    expect(JSON.parse(fs.readFileSync(path.join(realDir, 'real.json'), 'utf8'))).toHaveProperty('work');
+    expect(fs.existsSync(file('real.json'))).toBe(false);
+  });
+
+  it('leaves a symlink loop untouched and writes nothing', () => {
+    const a = file('a.json');
+    const b = file('b.json');
+    fs.symlinkSync(b, a);
+    fs.symlinkSync(a, b);
+    saveBillingCache({}, { env: { CLAUDESTATUS_CACHE_FILE: a } });
+    expect(fs.lstatSync(a).isSymbolicLink()).toBe(true);
+    expect(fs.lstatSync(b).isSymbolicLink()).toBe(true);
+  });
+});
+
+const KERNEL_HOP_LIMIT = 40;
+
+describe('symlink resolution (#32)', () => {
+  let dir: string;
+  const file = (name: string): string => path.join(dir, name);
+  beforeEach(() => {
+    dir = fs.mkdtempSync(path.join(os.tmpdir(), 'tg-link-'));
+  });
+  afterEach(() => {
+    fs.rmSync(dir, { recursive: true, force: true });
+  });
+
+  it('resolves ".." after a symlinked component inside the link target', () => {
+    const realDir = file('tree');
+    fs.mkdirSync(path.join(realDir, 'a', 'b'), { recursive: true });
+    fs.writeFileSync(path.join(realDir, 'a', 'state.json'), '{}');
+    fs.symlinkSync(path.join(realDir, 'a', 'b'), file('dirlink'));
+    const link = file('billing.json');
+    fs.symlinkSync(`${file('dirlink')}/../state.json`, link);
+    saveBillingCache({ work: {} }, { env: { CLAUDESTATUS_CACHE_FILE: link } });
+    expect(JSON.parse(fs.readFileSync(path.join(realDir, 'a', 'state.json'), 'utf8'))).toHaveProperty('work');
+    expect(fs.existsSync(file('state.json'))).toBe(false);
+  });
+
+  it('accepts a chain of exactly 40 links and a leap day in year 0000', () => {
+    const real = file('end.json');
+    fs.writeFileSync(real, '{}');
+    let prev = real;
+    for (let i = 0; i < KERNEL_HOP_LIMIT; i += 1) {
+      const next = file(`hop${i}.json`);
+      fs.symlinkSync(prev, next);
+      prev = next;
+    }
+    saveBillingCache({ work: {} }, { env: { CLAUDESTATUS_CACHE_FILE: prev } });
+    expect(JSON.parse(fs.readFileSync(real, 'utf8'))).toHaveProperty('work');
+    const body = { next_charge_at: '0000-02-29T00:00Z', billing_interval: 'month' };
+    expect(billingFromSubscription(OK, body).renewalAt).not.toBeNull();
+  });
+});
+
+describe('state file shape (#32)', () => {
+  let dir: string;
+  const file = (name: string): string => path.join(dir, name);
+  beforeEach(() => {
+    dir = fs.mkdtempSync(path.join(os.tmpdir(), 'tg-shape-'));
+  });
+  afterEach(() => {
+    fs.rmSync(dir, { recursive: true, force: true });
+  });
+
+  it('warns on a state file holding valid non-object JSON', () => {
+    const warn = jest.fn();
+    const log = { debug: jest.fn(), info: jest.fn(), warn, error: jest.fn() };
+    fs.writeFileSync(file('billing.json'), '[1, 2]');
+    const env = { CLAUDESTATUS_CACHE_FILE: file('billing.json') };
+    expect(loadBillingCache({ env }, log)).toEqual({});
+    expect(warn).toHaveBeenCalledWith('ignoring non-object file', expect.any(Object));
+  });
+
+  it('reads the shared claudestatus billing.json fixture', () => {
+    const fixture = path.join(__dirname, 'claudestatus-billing.fixture.json');
+    const cache = loadBillingCache({ env: { CLAUDESTATUS_CACHE_FILE: fixture } });
+    expect(Object.keys(cache)).toEqual(['work', 'home']);
+    expect(needsFetch(cache.work, NOW)).toBe(false);
+    expect(billingFromCache(cache.work, NOW)).toEqual({
+      billingDate: '2999-01-01T09:30:00.000Z',
+      daysLeft: expect.any(Number),
+      autoRenew: true,
+    });
+    expect(effectiveWeeklyReset(cache.work, null, NOW)).toBe('2999-01-05T00:00:00.000Z');
+    expect(cache.home.managedByAdmin?.value).toBe(true);
+    expect(needsFetch(cache.home, NOW)).toBe(true);
+  });
+});
