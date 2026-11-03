@@ -115,6 +115,35 @@ describe('addAccount cancellation', () => {
     expect(session.closed).toBe(true);
     expect(fs.existsSync(dir)).toBe(false);
   });
+
+  it('launches no browser when the signal is already aborted', async () => {
+    const openSession = jest.fn();
+    const result = await addAccount('work', {
+      dir,
+      sleep,
+      signal: AbortSignal.abort(),
+      openSession,
+    });
+
+    expect(result).toEqual({ state: 'failed', message: 'Login cancelled.' });
+    expect(openSession).not.toHaveBeenCalled();
+  });
+
+  it('cancels at once, without waiting for a hung probe, and closes the browser', async () => {
+    const session = fakeSession(0);
+    session.isLoggedIn = () => new Promise<boolean>(() => undefined);
+    const controller = new AbortController();
+    const pending = addAccount('work', {
+      dir,
+      sleep,
+      signal: controller.signal,
+      openSession: () => Promise.resolve(session),
+    });
+    controller.abort();
+
+    expect(await pending).toEqual({ state: 'failed', message: 'Login cancelled.' });
+    expect(session.closed).toBe(true);
+  });
 });
 
 describe('addAccount no usable session', () => {

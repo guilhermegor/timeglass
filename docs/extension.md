@@ -69,10 +69,17 @@ spawned and signals them itself, so nothing outlives the shell session's use of 
 the actor's `destroy` signal rather than an override of `destroy()`.
 
 `SIGTERM` alone would skip the browser-login cleanup, so `main.js` handles it for `add`: the
-signal aborts the login poll, `addAccount` returns `Login cancelled.` and its `finally` closes the
-browser before the process exits. The poll checks for the abort every two seconds, so closing
-can lag the signal by up to that long. The other commands have nothing to clean up and keep the
-default `SIGTERM` behaviour.
+signal aborts the login at once (the pending page load or probe is raced against the signal, so a
+hung browser cannot delay it), `addAccount` returns `Login cancelled.` and its `finally` closes the
+browser before the process exits. A signal that arrives before the browser is launched cancels the
+login without launching one. Playwright is launched with `handleSIGTERM: false`, so this abort is
+the only `SIGTERM` handler and the browser has a single owner.
+
+Only `add` launches a browser. `model` and `refresh` use no browser, and every file they write (the
+caches, the labels, the usage snapshot) is written to a temporary file and renamed into place, so
+the default `SIGTERM` behaviour cannot leave a truncated file. `label` is the same. No `SIGKILL`
+fallback is sent: a timer would have to outlive `disable()`, which GNOME's extension review
+forbids, and the cooperative abort no longer waits on the browser.
 
 ## Startup failures
 
@@ -82,6 +89,10 @@ exits with code 1, so the extension shows that line instead of Node's `Node.js v
 
 ## Known limits
 
+- The manifest declares no `session-modes`, so GNOME Shell disables the extension when the screen
+  locks. That destroys the indicator, which sends `SIGTERM` to any helper still running: locking
+  the screen during `add` (for example while waiting on 2FA) cancels the login and closes the
+  browser. Start `add` again after unlocking.
 - The refresh stores no organisation UUID, so the active account is reported as unknown until the
   API client exposes it.
 - The icon is `extension/icons/timeglass-symbolic.svg`.
