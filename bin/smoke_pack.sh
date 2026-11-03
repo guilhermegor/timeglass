@@ -152,6 +152,16 @@ smoke_cli_default_command() {
     print_status "success" "npx $pkg_name default command smoke passed"
 }
 
+smoke_extension_shipped() {
+    local pkg_name="$1"
+    local manifest="$TMP_DIR/node_modules/$pkg_name/extension/metadata.json"
+    if [ ! -f "$manifest" ]; then
+        print_status "error" "installed $pkg_name is missing extension/metadata.json; add \"extension\" to package.json \"files\""
+        exit 1
+    fi
+    print_status "success" "extension/metadata.json shipped smoke passed"
+}
+
 main() {
     local pkg_name
     pkg_name="$(package_name)"
@@ -167,6 +177,7 @@ main() {
     smoke_import_esm "$pkg_name"
     smoke_cli_version "$pkg_name"
     smoke_cli_default_command "$pkg_name"
+    smoke_extension_shipped "$pkg_name"
 
     print_status "success" "Package tarball smoke test passed"
 }

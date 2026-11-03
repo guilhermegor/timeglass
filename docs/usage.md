@@ -130,6 +130,7 @@ pointing at `dist/cjs/cli/bin.js`).
 | --- | --- |
 | `timeglass` | prints a usage table (session and weekly utilisation, reset day and time) and a billing table (plan, paid, renewal, auto-renew) for every saved account |
 | `timeglass add <name>` | opens a browser to log in to claude.ai and saves the account |
+| `timeglass install-extension` | installs the GNOME top-bar extension shipped in the package under `extension/` (see [GNOME extension](extension.md)) |
 | `timeglass --version` (`-v`) | prints the package version |
 | `timeglass --help` (`-h`) | prints the command list |
 
