@@ -1,0 +1,10 @@
+{
+  "work": {
+    "renewalAt": { "value": "2999-01-01T09:30:00.000Z", "readAt": "2026-10-01T08:00:00.000Z" },
+    "autoRenew": { "value": true, "readAt": "2026-10-01T08:00:00.000Z" },
+    "weeklyResetAt": { "value": "2999-01-05T00:00:00.000Z", "readAt": "2026-10-01T08:00:00.000Z" }
+  },
+  "home": {
+    "managedByAdmin": { "value": true, "readAt": "2026-10-01T08:00:00.000Z" }
+  }
+}
