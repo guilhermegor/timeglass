@@ -152,14 +152,22 @@ smoke_cli_default_command() {
     print_status "success" "npx $pkg_name default command smoke passed"
 }
 
-smoke_extension_shipped() {
+smoke_extension_installs() {
     local pkg_name="$1"
-    local manifest="$TMP_DIR/node_modules/$pkg_name/extension/metadata.json"
-    if [ ! -f "$manifest" ]; then
-        print_status "error" "installed $pkg_name is missing extension/metadata.json; add \"extension\" to package.json \"files\""
+    local data_home installed file
+    data_home="$(mktemp -d "$TMP_DIR/data.XXXXXX")"
+    if ! (cd "$TMP_DIR" && XDG_DATA_HOME="$data_home" npx --no-install "$pkg_name" install-extension >/dev/null); then
+        print_status "error" "npx $pkg_name install-extension failed from the installed tarball"
         exit 1
     fi
-    print_status "success" "extension/metadata.json shipped smoke passed"
+    installed="$data_home/gnome-shell/extensions/timeglass@guilhermegor"
+    for file in metadata.json extension.js helper.json; do
+        if [ ! -f "$installed/$file" ]; then
+            print_status "error" "install-extension did not install $file; check package.json \"files\" and that extension/ exists"
+            exit 1
+        fi
+    done
+    print_status "success" "npx $pkg_name install-extension smoke passed"
 }
 
 main() {
@@ -177,7 +185,7 @@ main() {
     smoke_import_esm "$pkg_name"
     smoke_cli_version "$pkg_name"
     smoke_cli_default_command "$pkg_name"
-    smoke_extension_shipped "$pkg_name"
+    smoke_extension_installs "$pkg_name"
 
     print_status "success" "Package tarball smoke test passed"
 }
