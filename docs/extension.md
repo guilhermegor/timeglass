@@ -17,11 +17,11 @@ built `dist/esm/popover/main.js`. The command fails if the package has not been 
 extension files are missing, and replaces a previous install rather than merging into it.
 
 Then restart GNOME Shell (log out and back in on Wayland) and run
-`gnome-extensions enable timeglass@guilhermegor`. Supported shells: 46, 47, 48.
+`gnome-extensions enable timeglass@guilhermegor`. Supported shells: 46 to 50.
 
 ## What the popover shows
 
-Per account, sorted by account name:
+Per account, in the order of the usage file, which refresh writes sorted by account name:
 
 - Session and weekly usage bars with a countdown and the absolute reset time, for example
   `resets in 4h39m (today 21:44)`. Days are labelled `today`, `tomorrow`, the weekday, and from
@@ -52,7 +52,9 @@ The extension runs `node <main.js> model|refresh|add <name>|label <name> [text]`
 is `dist/esm/popover/main.js` from `helper.json`. Output is a JSON model on stdout; failures
 come back as the last stderr line and exit code. The same entry point is `runPopoverCommand`
 in `src/popover/entry.ts` (internal, not re-exported from the package barrel); it never writes to
-the console itself: only `main.js` prints. A shell-local `node` must be on `PATH` (an asdf shim is the fallback).
+the console itself: only `main.js` prints. `helper.json` also records the `node` that ran `install-extension` (`process.execPath`) and the
+extension spawns that binary, falling back to `node` on `PATH`. The recorded paths are absolute, so
+reinstall after moving or upgrading the package or Node; do not install from a throwaway `npx` cache.
 
 ## Known limits
 

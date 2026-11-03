@@ -79,6 +79,36 @@ describe('findPackageRoot', () => {
   });
 });
 
+describe('installExtension swap', () => {
+  afterEach(() => jest.restoreAllMocks());
+
+  it('restores the previous install when the final rename fails', () => {
+    const packageRoot = makePackage();
+    const targetRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'tg-ext-'));
+    const target = path.join(targetRoot, EXTENSION_UUID);
+    fs.mkdirSync(target);
+    fs.writeFileSync(path.join(target, 'kept.txt'), 'x');
+    const real = fs.renameSync.bind(fs);
+    jest.spyOn(fs, 'renameSync').mockImplementation((from, to) => {
+      if (String(to) === target && String(from).endsWith('.new')) throw new Error('EXDEV');
+      real(from, to);
+    });
+    expect(() => installExtension({ packageRoot, targetRoot })).toThrow('EXDEV');
+    expect(fs.readFileSync(path.join(target, 'kept.txt'), 'utf8')).toBe('x');
+  });
+
+  it('records the running node binary and rejects a missing entry script', () => {
+    const packageRoot = makePackage();
+    const targetRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'tg-ext-'));
+    const result = installExtension({ packageRoot, targetRoot });
+    const helper = JSON.parse(
+      fs.readFileSync(path.join(result.installedTo, 'helper.json'), 'utf8'),
+    ) as { node: string };
+    expect(helper.node).toBe(process.execPath);
+    expect(() => findPackageRoot(undefined)).toThrow(/no entry script/);
+  });
+});
+
 describe('installExtension paths', () => {
   it('writes an absolute helper path even when packageRoot is relative', () => {
     const packageRoot = makePackage();

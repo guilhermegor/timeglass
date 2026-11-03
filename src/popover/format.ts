@@ -13,6 +13,7 @@ const FULL = 100;
 export function countdown(iso: string, now: Date): string {
   const ms = Date.parse(iso) - now.getTime();
   if (!(ms > 0)) return 'now';
+  if (ms < MINUTE) return '<1m';
   if (ms < HOUR) return `${Math.floor(ms / MINUTE)}m`;
   if (ms < DAY) {
     const minutes = String(Math.floor((ms % HOUR) / MINUTE)).padStart(PAD, '0');
@@ -26,10 +27,8 @@ function dayNumber(date: Date, timeZone: string | undefined): number {
 }
 
 function dayLabel(date: Date, now: Date, parts: Record<string, string>, tz?: string): string {
-  if (date.getTime() - now.getTime() >= WEEK_DAYS * DAY) {
-    return `${parts.weekday} ${parts.day} ${parts.month}`;
-  }
   const gap = dayNumber(date, tz) - dayNumber(now, tz);
+  if (gap >= WEEK_DAYS) return `${parts.weekday} ${parts.day} ${parts.month}`;
   if (gap === 0) return 'today';
   return gap === 1 ? 'tomorrow' : String(parts.weekday);
 }
@@ -51,7 +50,7 @@ export function resetAt(iso: string, now: Date, timeZone?: string): string {
 
 export function ago(iso: string, now: Date): string {
   const ms = now.getTime() - Date.parse(iso);
-  if (Number.isNaN(ms)) return 'never';
+  if (Number.isNaN(ms) || ms < -HOUR) return 'never';
   if (ms < MINUTE) return 'just now';
   if (ms < HOUR) return `${Math.floor(ms / MINUTE)} min ago`;
   if (ms < DAY) return `${Math.floor(ms / HOUR)} h ago`;

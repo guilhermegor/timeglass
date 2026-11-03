@@ -2,7 +2,6 @@ import { detectActiveAccount } from '../accounts/active.js';
 import { readLabels, setLabel } from '../accounts/labels.js';
 import { loadBillingCache } from '../cache/billing.js';
 import { defaultAccountsDir } from '../store/account-store.js';
-import { addAccount } from '../store/login.js';
 import { NULL_EMITTER } from '../utils/log-emitter.js';
 
 import { buildPopoverModel } from './model.js';
@@ -39,6 +38,7 @@ function showModel(options: EntryOptions): EntryResult {
 }
 
 async function addByName(name: string, options: EntryOptions): Promise<EntryResult> {
+  const { addAccount } = await import('../store/login.js');
   const result = await addAccount(name, {
     dir: options.accountsDir ?? defaultAccountsDir(options.env),
     ...(options.logger && { logger: options.logger }),

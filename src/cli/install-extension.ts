@@ -26,7 +26,8 @@ function isPackageRoot(dir: string): boolean {
   }
 }
 
-export function findPackageRoot(start: string): string {
+export function findPackageRoot(start: string | undefined): string {
+  if (!start) throw new Error(`Cannot locate the ${PACKAGE_NAME} package: no entry script.`);
   let dir = path.dirname(fs.realpathSync(start));
   while (!isPackageRoot(dir)) {
     const parent = path.dirname(dir);
@@ -41,8 +42,22 @@ export function defaultExtensionsDir(env: NodeJS.ProcessEnv = process.env): stri
   return path.join(data, 'gnome-shell', 'extensions');
 }
 
+function swapInto(target: string, staging: string): void {
+  const previous = `${target}.old`;
+  fs.rmSync(previous, { recursive: true, force: true });
+  const hadPrevious = fs.existsSync(target);
+  if (hadPrevious) fs.renameSync(target, previous);
+  try {
+    fs.renameSync(staging, target);
+  } catch (error: unknown) {
+    if (hadPrevious) fs.renameSync(previous, target);
+    throw error;
+  }
+  fs.rmSync(previous, { recursive: true, force: true });
+}
+
 export function installExtension(options: InstallExtensionOptions = {}): InstallExtensionResult {
-  const root = path.resolve(options.packageRoot ?? findPackageRoot(process.argv[1] ?? ''));
+  const root = path.resolve(options.packageRoot ?? findPackageRoot(process.argv[1]));
   const source = path.join(root, 'extension');
   const main = path.join(root, 'dist', 'esm', 'popover', 'main.js');
   if (!fs.existsSync(path.join(source, 'metadata.json'))) {
@@ -53,9 +68,8 @@ export function installExtension(options: InstallExtensionOptions = {}): Install
   const staging = `${target}.new`;
   fs.rmSync(staging, { recursive: true, force: true });
   fs.cpSync(source, staging, { recursive: true });
-  fs.writeFileSync(path.join(staging, HELPER_FILE), `${JSON.stringify({ main })}\n`);
-  fs.rmSync(target, { recursive: true, force: true });
-  fs.renameSync(staging, target);
+  fs.writeFileSync(path.join(staging, HELPER_FILE), `${JSON.stringify({ main, node: process.execPath })}\n`);
+  swapInto(target, staging);
   const enableCommand = `gnome-extensions enable ${EXTENSION_UUID}`;
   return {
     installedTo: target,

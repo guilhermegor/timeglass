@@ -46,7 +46,7 @@ describe('runPopoverCommand', () => {
     expect(JSON.parse(result.stdout)).toMatchObject({ bar: '—', accounts: [] });
   });
 
-  it('stores and shows an edited label', async () => {
+  it('stores an edited label', async () => {
     const { opts } = sandbox();
     expect((await runPopoverCommand(['label', 'work', 'Work', 'laptop'], opts)).code).toBe(0);
     const labels = fs.readFileSync(

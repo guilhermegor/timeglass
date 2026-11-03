@@ -9,14 +9,21 @@ import * as PanelMenu from 'resource:///org/gnome/shell/ui/panelMenu.js';
 import * as PopupMenu from 'resource:///org/gnome/shell/ui/popupMenu.js';
 import * as ModalDialog from 'resource:///org/gnome/shell/ui/modalDialog.js';
 
-function readMainPath(extensionPath) {
+function readHelper(extensionPath) {
     const file = Gio.File.new_for_path(`${extensionPath}/helper.json`);
     const [, bytes] = file.load_contents(null);
-    return JSON.parse(new globalThis.TextDecoder().decode(bytes)).main;
+    return JSON.parse(new globalThis.TextDecoder().decode(bytes));
 }
 
-function run(mainPath, args, done) {
-    const nodeBin = GLib.find_program_in_path('node') ?? `${GLib.get_home_dir()}/.asdf/shims/node`;
+function lastErrorLine(stderr) {
+    const lines = (stderr || '').trim().split('\n').filter(l => l && !/^Node\.js v\d/.test(l));
+    return lines.pop() || '';
+}
+
+function run(helper, args, done) {
+    const mainPath = helper.main;
+    const recorded = helper.node && GLib.file_test(helper.node, GLib.FileTest.IS_EXECUTABLE) ? helper.node : null;
+    const nodeBin = recorded ?? GLib.find_program_in_path('node') ?? `${GLib.get_home_dir()}/.asdf/shims/node`;
     let proc;
     try {
         proc = Gio.Subprocess.new(
@@ -33,7 +40,7 @@ function run(mainPath, args, done) {
             const [, out, err] = p.communicate_utf8_finish(res);
             result = p.get_successful()
                 ? [out, null]
-                : [null, (err || '').trim().split('\n').pop() || `exit ${p.get_exit_status()}`];
+                : [null, lastErrorLine(err) || `exit ${p.get_exit_status()}`];
         } catch (e) {
             globalThis.logError(e, 'timeglass');
             result = [null, e.message];
@@ -44,9 +51,9 @@ function run(mainPath, args, done) {
 
 const Indicator = GObject.registerClass(
 class Indicator extends PanelMenu.Button {
-    _init(mainPath, iconPath) {
+    _init(helper, iconPath) {
         super._init(0.0, 'timeglass');
-        this._main = mainPath;
+        this._main = helper;
         const box = new St.BoxLayout({style_class: 'panel-status-menu-box'});
         box.add_child(new St.Icon({gicon: Gio.icon_new_for_string(iconPath), style_class: 'system-status-icon'}));
         this._label = new St.Label({text: '—', y_align: Clutter.ActorAlign.CENTER});
@@ -56,9 +63,9 @@ class Indicator extends PanelMenu.Button {
         this._blocks = new PopupMenu.PopupMenuSection();
         this.menu.addMenuItem(this._blocks);
         this.menu.addMenuItem(new PopupMenu.PopupSeparatorMenuItem());
-        const refresh = new PopupMenu.PopupMenuItem('Refresh');
-        refresh.connect('activate', () => this._refresh());
-        this.menu.addMenuItem(refresh);
+        this._refreshItem = new PopupMenu.PopupMenuItem('Refresh');
+        this._refreshItem.connect('activate', () => this._refresh());
+        this.menu.addMenuItem(this._refreshItem);
         this._addItem = new PopupMenu.PopupMenuItem('+ Add account');
         this._addItem.connect('activate', () => this._addAccountDialog());
         this.menu.addMenuItem(this._addItem);
@@ -67,11 +74,22 @@ class Indicator extends PanelMenu.Button {
         this._reload();
     }
 
+    _setBusy(busy) {
+        this._busy = busy;
+        this._refreshItem.setSensitive(!busy);
+        this._addItem.setSensitive(!busy);
+    }
+
     _refresh() {
+        if (this._busy)
+            return;
+        this._setBusy(true);
         this._label.text = '…';
         run(this._main, ['refresh'], (_out, err) => {
-            if (!this._destroyed)
-                this._reload(err ? `Refresh failed: ${err}` : null);
+            if (this._destroyed)
+                return;
+            this._setBusy(false);
+            this._reload(err ? `Refresh failed: ${err}` : null);
         });
     }
 
@@ -109,10 +127,12 @@ class Indicator extends PanelMenu.Button {
     }
 
     _runAdd(name) {
-        this._addItem.setSensitive(false);
+        if (this._busy)
+            return;
+        this._setBusy(true);
         this._label.text = '…';
         const finish = failure => {
-            this._addItem.setSensitive(true);
+            this._setBusy(false);
             if (failure)
                 Main.notify('timeglass', failure);
             this._reload(failure);
@@ -144,6 +164,9 @@ class Indicator extends PanelMenu.Button {
         item.replace_child(text, entry);
         edit.hide();
         entry.clutter_text.connect('activate', () => {
+            if (entry.reactive === false)
+                return;
+            entry.reactive = false;
             const label = entry.text.trim();
             run(this._main, ['label', account.name, label], (_out, err) => {
                 if (!this._destroyed)
@@ -198,15 +221,15 @@ class Indicator extends PanelMenu.Button {
 
 export default class TimeglassExtension extends Extension {
     enable() {
-        let mainPath;
+        let helper;
         try {
-            mainPath = readMainPath(this.path);
+            helper = readHelper(this.path);
         } catch (e) {
             globalThis.logError(e, 'timeglass');
             Main.notify('timeglass', 'helper.json missing or unreadable: run timeglass install-extension');
             return;
         }
-        this._indicator = new Indicator(mainPath, `${this.path}/icons/timeglass-symbolic.svg`);
+        this._indicator = new Indicator(helper, `${this.path}/icons/timeglass-symbolic.svg`);
         Main.panel.addToStatusArea(this.uuid, this._indicator);
     }
 

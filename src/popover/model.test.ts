@@ -113,6 +113,13 @@ describe('time formatting', () => {
   it('treats a snapshot stamped slightly in the future as just now, not never', () => {
     expect(ago('2026-10-12T10:00:30Z', new Date('2026-10-12T10:00:00Z'))).toBe('just now');
     expect(ago('not a date', now)).toBe('never');
+    expect(ago('2026-10-13T10:00:00Z', new Date('2026-10-12T10:00:00Z'))).toBe('never');
+  });
+
+  it('shows <1m under a minute and a full date from seven calendar days out', () => {
+    expect(countdown('2026-10-12T10:00:30Z', new Date('2026-10-12T10:00:00Z'))).toBe('<1m');
+    const monday = new Date('2026-10-12T10:00:00Z');
+    expect(resetAt('2026-10-19T08:00:00Z', monday, 'UTC')).toBe('Mon 19 Oct 08:00');
   });
 
   it('clamps a past time to now', () => {
