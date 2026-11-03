@@ -2,7 +2,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 
-import { EXTENSION_UUID, findPackageRoot, installExtension } from './install-extension.js';
+import { defaultExtensionsDir, EXTENSION_UUID, findPackageRoot, installExtension } from './install-extension.js';
 
 function makePackage(): string {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'tg-pkg-'));
@@ -122,5 +122,17 @@ describe('installExtension paths', () => {
     ) as { main: string };
     expect(path.isAbsolute(helper.main)).toBe(true);
     expect(helper.main).toBe(path.join(packageRoot, 'dist', 'esm', 'popover', 'main.js'));
+  });
+});
+
+describe('defaultExtensionsDir', () => {
+  it('honours XDG_DATA_HOME', () => {
+    expect(defaultExtensionsDir({ XDG_DATA_HOME: '/data' })).toBe('/data/gnome-shell/extensions');
+  });
+
+  it('falls back to ~/.local/share when XDG_DATA_HOME is unset or empty', () => {
+    const expected = path.join(os.homedir(), '.local', 'share', 'gnome-shell', 'extensions');
+    expect(defaultExtensionsDir({})).toBe(expected);
+    expect(defaultExtensionsDir({ XDG_DATA_HOME: '' })).toBe(expected);
   });
 });

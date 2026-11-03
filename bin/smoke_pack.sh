@@ -173,10 +173,16 @@ assert_extension_installed() {
         fi
     done
     if ! node -e "
+      const fs = require('fs');
       const path = require('path');
-      const h = require(process.argv[1]);
-      const ok = path.isAbsolute(h.main) && h.main.startsWith(process.argv[2] + path.sep) && require('fs').existsSync(h.main);
-      if (!ok) process.exit(1);
+      try {
+        const main = require(process.argv[1]).main;
+        const root = fs.realpathSync(process.argv[2]);
+        const ok = path.isAbsolute(main) && fs.realpathSync(main).startsWith(root + path.sep);
+        if (!ok) process.exit(1);
+      } catch {
+        process.exit(1);
+      }
     " "$installed/helper.json" "$package_dir"; then
         print_status "error" "install-extension wrote no helper.json, or its \"main\" is not an existing absolute path inside $package_dir"
         exit 1
@@ -202,7 +208,10 @@ smoke_extension_installs() {
     local data_home package_dir uuid installed
     data_home="$(mktemp -d "$TMP_DIR/data.XXXXXX")"
     package_dir="$TMP_DIR/node_modules/$pkg_name"
-    uuid="$(node -p "require(process.argv[1]).uuid" "$package_dir/extension/metadata.json")"
+    if ! uuid="$(node -p "require(process.argv[1]).uuid || ''" "$package_dir/extension/metadata.json" 2>/dev/null)" || [ -z "$uuid" ]; then
+        print_status "error" "extension/metadata.json is missing from the tarball or has no uuid; check package.json \"files\""
+        exit 1
+    fi
     installed="$data_home/gnome-shell/extensions/$uuid"
     run_install_extension "$pkg_name" "$data_home"
     assert_extension_installed "$installed" "$package_dir"
