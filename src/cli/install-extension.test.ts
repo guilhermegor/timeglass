@@ -126,13 +126,17 @@ describe('installExtension paths', () => {
 });
 
 describe('defaultExtensionsDir', () => {
-  it('honours XDG_DATA_HOME', () => {
-    expect(defaultExtensionsDir({ XDG_DATA_HOME: '/data' })).toBe('/data/gnome-shell/extensions');
+  const suffix = path.join('gnome-shell', 'extensions');
+
+  it('honours an absolute XDG_DATA_HOME', () => {
+    expect(defaultExtensionsDir({ XDG_DATA_HOME: '/data' })).toBe(path.join('/data', suffix));
   });
 
-  it('falls back to ~/.local/share when XDG_DATA_HOME is unset or empty', () => {
-    const expected = path.join(os.homedir(), '.local', 'share', 'gnome-shell', 'extensions');
-    expect(defaultExtensionsDir({})).toBe(expected);
-    expect(defaultExtensionsDir({ XDG_DATA_HOME: '' })).toBe(expected);
-  });
+  it.each([undefined, '', 'relative/dir'])(
+    'falls back to $HOME/.local/share when XDG_DATA_HOME is %p',
+    (xdg) => {
+      const expected = path.join('/home/tester', '.local', 'share', suffix);
+      expect(defaultExtensionsDir({ HOME: '/home/tester', XDG_DATA_HOME: xdg })).toBe(expected);
+    },
+  );
 });

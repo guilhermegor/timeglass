@@ -208,8 +208,8 @@ smoke_extension_installs() {
     local data_home package_dir uuid installed
     data_home="$(mktemp -d "$TMP_DIR/data.XXXXXX")"
     package_dir="$TMP_DIR/node_modules/$pkg_name"
-    if ! uuid="$(node -p "require(process.argv[1]).uuid || ''" "$package_dir/extension/metadata.json" 2>/dev/null)" || [ -z "$uuid" ]; then
-        print_status "error" "extension/metadata.json is missing from the tarball or has no uuid; check package.json \"files\""
+    if ! uuid="$(node -p "require(process.argv[1]).uuid || ''" "$package_dir/extension/metadata.json")" || [[ ! "$uuid" =~ ^[A-Za-z0-9_@-][A-Za-z0-9._@-]*$ ]]; then
+        print_status "error" "extension/metadata.json is missing from the tarball, unparsable, or has no valid uuid; check package.json \"files\""
         exit 1
     fi
     installed="$data_home/gnome-shell/extensions/$uuid"
