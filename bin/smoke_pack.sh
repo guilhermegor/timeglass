@@ -152,22 +152,42 @@ smoke_cli_default_command() {
     print_status "success" "npx $pkg_name default command smoke passed"
 }
 
-smoke_extension_installs() {
+run_install_extension() {
     local pkg_name="$1"
-    local data_home installed file
-    data_home="$(mktemp -d "$TMP_DIR/data.XXXXXX")"
-    if ! (cd "$TMP_DIR" && XDG_DATA_HOME="$data_home" npx --no-install "$pkg_name" install-extension >/dev/null); then
-        print_status "error" "npx $pkg_name install-extension failed from the installed tarball"
+    local data_home="$2"
+    local output
+    if ! output="$(cd "$TMP_DIR" && HOME="$data_home" XDG_DATA_HOME="$data_home" npx --no-install "$pkg_name" install-extension 2>&1)"; then
+        print_status "error" "npx $pkg_name install-extension failed from the installed tarball: $output"
         exit 1
     fi
-    installed="$data_home/gnome-shell/extensions/timeglass@guilhermegor"
-    for file in metadata.json extension.js helper.json; do
+}
+
+assert_extension_installed() {
+    local installed="$1"
+    local file
+    for file in metadata.json extension.js; do
         if [ ! -f "$installed/$file" ]; then
             print_status "error" "install-extension did not install $file; check package.json \"files\" and that extension/ exists"
             exit 1
         fi
     done
-    print_status "success" "npx $pkg_name install-extension smoke passed"
+    if ! node -e "const h = require(process.argv[1]); if (!require('fs').existsSync(h.main)) process.exit(1);" "$installed/helper.json"; then
+        print_status "error" "install-extension wrote no helper.json, or its \"main\" path does not exist"
+        exit 1
+    fi
+}
+
+smoke_extension_installs() {
+    local pkg_name="$1"
+    local data_home uuid installed
+    data_home="$(mktemp -d "$TMP_DIR/data.XXXXXX")"
+    uuid="$(node -p "require('$TMP_DIR/node_modules/$pkg_name/extension/metadata.json').uuid")"
+    installed="$data_home/gnome-shell/extensions/$uuid"
+    run_install_extension "$pkg_name" "$data_home"
+    assert_extension_installed "$installed"
+    run_install_extension "$pkg_name" "$data_home"
+    assert_extension_installed "$installed"
+    print_status "success" "npx $pkg_name install-extension smoke passed (fresh install and reinstall)"
 }
 
 main() {
