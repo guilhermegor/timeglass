@@ -1,4 +1,10 @@
 import type { Labels } from '../accounts/labels.js';
+import {
+  expiryWarnings,
+  lifespanBadge,
+  todayOf,
+  type Lifespans,
+} from '../accounts/lifespan.js';
 import { effectiveWeeklyReset, type BillingCache, type CacheEntry } from '../cache/billing.js';
 
 import { ago, countdown, resetAt, usageBar } from './format.js';
@@ -11,6 +17,8 @@ export interface PopoverAccount {
   name: string;
   label: string;
   text: string;
+  lifespan: 'permanent' | 'temporary';
+  until: string | null;
 }
 
 export interface PopoverModel {
@@ -19,6 +27,7 @@ export interface PopoverModel {
   active: string | null;
   activeLine: string;
   accounts: PopoverAccount[];
+  notices: string[];
 }
 
 function sessionPercent(account: SnapshotAccount): number {
@@ -101,10 +110,11 @@ function accountText(
   account: SnapshotAccount,
   label: string,
   entry: CacheEntry | undefined,
-  context: { at: string | null; now: Date; active: boolean },
+  context: { at: string | null; now: Date; active: boolean; badge: string },
 ): string {
-  const { at, now, active } = context;
-  const badge = (account.plan === 'free' ? '  ⚠ unpaid' : '') + (active ? '  ● active' : '');
+  const { at, now, active, badge: lifespan } = context;
+  const badge = (account.plan === 'free' ? '  ⚠ unpaid' : '') + (active ? '  ● active' : '') +
+    (lifespan ? `  ⏳ ${lifespan}` : '');
   const head = `${label}  ${planName(account)}${badge}`;
   if (account.error) return `${head}\n✗ ${account.error}`;
   const weeklyReset = effectiveWeeklyReset(entry, account.weekly?.resetsAt, now);
@@ -126,9 +136,17 @@ function barText(shown: SnapshotAccount | undefined, fallback: SnapshotAccount |
 export function buildPopoverModel(
   usage: UsageSnapshot,
   cache: BillingCache,
-  options: { now?: Date; activeName?: string | null; labels?: Labels } = {},
+  options: {
+    now?: Date;
+    activeName?: string | null;
+    labels?: Labels;
+    lifespans?: Lifespans;
+    notices?: readonly string[];
+    timeZone?: string;
+  } = {},
 ): PopoverModel {
-  const { now = new Date(), activeName = null, labels = {} } = options;
+  const { now = new Date(), activeName = null, labels = {}, lifespans = {} } = options;
+  const today = todayOf(now, options.timeZone);
   const best = recommend(usage.accounts, now);
   const act = usage.accounts.find((a) => a.name === activeName);
   const shown = act?.session ? act : undefined;
@@ -139,8 +157,25 @@ export function buildPopoverModel(
     activeLine: act ? `active: ${act.name}` : 'active: unknown',
     accounts: usage.accounts.map((a) => {
       const label = labels[a.name] ?? a.name;
-      const text = accountText(a, label, cache[a.name], { at: usage.at, now, active: a === act });
-      return { name: a.name, label, text };
+      const record = lifespans[a.name];
+      const badge = lifespanBadge(record, today);
+      const context = { at: usage.at, now, active: a === act, badge };
+      const text = accountText(a, label, cache[a.name], context);
+      return {
+        name: a.name,
+        label,
+        text,
+        lifespan: record?.lifespan ?? 'permanent',
+        until: record?.until ?? null,
+      };
     }),
+    notices: [
+      ...(options.notices ?? []),
+      ...expiryWarnings(
+        lifespans,
+        usage.accounts.map((a) => a.name),
+        today,
+      ),
+    ],
   };
 }

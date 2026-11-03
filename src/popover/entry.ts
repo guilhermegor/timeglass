@@ -1,5 +1,8 @@
 import { detectActiveAccount } from '../accounts/active.js';
+import { editAccount, parseEditArgs } from '../accounts/edit.js';
+import { expiredNotices, purgeExpired } from '../accounts/expiry.js';
 import { readLabels, setLabel } from '../accounts/labels.js';
+import { readLifespans } from '../accounts/lifespan.js';
 import { loadBillingCache } from '../cache/billing.js';
 import { defaultAccountsDir } from '../store/account-store.js';
 import { NULL_EMITTER } from '../utils/log-emitter.js';
@@ -16,7 +19,7 @@ export interface EntryResult {
 
 export type EntryOptions = RefreshOptions;
 
-const USAGE = 'usage: model | refresh | add <name> | label <name> [text]';
+const USAGE = 'usage: model | refresh | add <name> | label <name> [text] | edit <name> [flags]';
 
 function ok(stdout = ''): EntryResult {
   return { code: 0, stdout, stderr: '' };
@@ -26,13 +29,26 @@ function fail(stderr: string): EntryResult {
   return { code: 1, stdout: '', stderr };
 }
 
+function purgeContext(options: EntryOptions) {
+  return {
+    dir: options.accountsDir ?? defaultAccountsDir(options.env),
+    opts: options,
+    ...(options.logger && { log: options.logger }),
+    ...(options.now && { now: options.now }),
+  };
+}
+
 function showModel(options: EntryOptions): EntryResult {
   const log = options.logger ?? NULL_EMITTER;
+  const context = purgeContext(options);
+  const notices = expiredNotices(purgeExpired(context));
   const usage = loadUsageSnapshot(options, log);
   const model = buildPopoverModel(usage, loadBillingCache(options, log), {
     ...(options.now && { now: options.now }),
     activeName: detectActiveAccount(usage.accounts, options),
     labels: readLabels(options, log),
+    lifespans: readLifespans(context.dir, log),
+    notices,
   });
   return ok(JSON.stringify(model));
 }
@@ -47,6 +63,12 @@ async function addByName(name: string, options: EntryOptions): Promise<EntryResu
   return fail(result.state === 'failed' ? result.message : 'Login timed out.');
 }
 
+function editByArgs(args: readonly string[], options: EntryOptions): EntryResult {
+  const { name, changes } = parseEditArgs(args);
+  editAccount(name, changes, { ...purgeContext(options) });
+  return ok();
+}
+
 export async function runPopoverCommand(
   argv: readonly string[],
   options: EntryOptions = {},
@@ -55,9 +77,11 @@ export async function runPopoverCommand(
   try {
     if (command === 'model') return showModel(options);
     if (command === 'refresh') {
+      purgeExpired(purgeContext(options));
       await refreshUsage(options);
       return ok();
     }
+    if (command === 'edit') return editByArgs(argv.slice(1), options);
     if (command === 'add' && name) return await addByName(name, options);
     if (command === 'label' && name) {
       return setLabel(name, rest.join(' '), options, options.logger)

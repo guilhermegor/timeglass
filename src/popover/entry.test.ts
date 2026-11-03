@@ -3,9 +3,10 @@ import os from 'node:os';
 import path from 'node:path';
 
 import type { FetchLike } from '../api/types.js';
+import { saveStorageState } from '../store/account-store.js';
 
 import { runPopoverCommand } from './entry.js';
-import { loadUsageSnapshot } from './snapshot.js';
+import { loadUsageSnapshot, saveUsageSnapshot } from './snapshot.js';
 
 const HTTP_OK = 200;
 const HTTP_ERROR = 500;
@@ -102,5 +103,52 @@ describe('runPopoverCommand refresh persistence', () => {
     const result = await runPopoverCommand(['refresh'], { ...opts, env });
     expect(result.code).toBe(1);
     expect(result.stderr).toMatch(/Could not save/);
+  });
+});
+
+describe('runPopoverCommand lifespan', () => {
+  const SAVED = { cookies: [], origins: [] };
+  const originalTz = process.env.TZ;
+
+  beforeAll(() => {
+    process.env.TZ = 'UTC';
+  });
+
+  afterAll(() => {
+    if (originalTz === undefined) delete process.env.TZ;
+    else process.env.TZ = originalTz;
+  });
+
+  it('edit sets lifespan and the model carries badge, fields and warning', async () => {
+    const { accountsDir, opts } = sandbox();
+    saveStorageState(accountsDir, 'work', SAVED);
+    const now = new Date('2026-11-03T12:00:00Z');
+    const edit = ['edit', 'work', '--lifespan', 'temporary', '--until', '2026-11-05'];
+    expect((await runPopoverCommand(edit, { ...opts, now })).code).toBe(0);
+    saveUsageSnapshot({ at: null, accounts: [{ name: 'work', plan: 'pro' }] }, opts);
+    const model = JSON.parse((await runPopoverCommand(['model'], { ...opts, now })).stdout);
+    expect(model.accounts[0]).toMatchObject({ lifespan: 'temporary', until: '2026-11-05' });
+    expect(model.accounts[0].text).toMatch(/temporary, expires (in \dd|today)/);
+    expect(model.notices[0]).toContain('will be removed');
+  });
+
+  it('edit rejects until without temporary', async () => {
+    const { accountsDir, opts } = sandbox();
+    saveStorageState(accountsDir, 'work', SAVED);
+    const result = await runPopoverCommand(['edit', 'work', '--until', '2030-01-01'], opts);
+    expect(result.code).toBe(1);
+    expect(result.stderr).toMatch(/--lifespan temporary/);
+  });
+
+  it('model purges an expired account and reports a one-line notice', async () => {
+    const { accountsDir, opts } = sandbox();
+    saveStorageState(accountsDir, 'work', SAVED);
+    const before = new Date('2026-11-01T12:00:00Z');
+    const edit = ['edit', 'work', '--lifespan', 'temporary', '--until', '2026-11-02'];
+    await runPopoverCommand(edit, { ...opts, now: before });
+    const after = new Date('2026-11-03T12:00:00Z');
+    const model = JSON.parse((await runPopoverCommand(['model'], { ...opts, now: after })).stdout);
+    expect(model.notices).toEqual(['Removed expired temporary account "work" and its cached data.']);
+    expect(fs.readdirSync(accountsDir).filter((f) => f.endsWith('.storage.json'))).toEqual([]);
   });
 });

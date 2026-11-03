@@ -155,31 +155,56 @@ class Indicator extends PanelMenu.Button {
         const edit = new St.Button({label: '✎', can_focus: true, y_align: Clutter.ActorAlign.START});
         item.add_child(text);
         item.add_child(edit);
-        edit.connect('clicked', () => this._editLabel(item, text, edit, account));
+        edit.connect('clicked', () => this._editAccountDialog(account));
         this._blocks.addMenuItem(item);
     }
 
-    _editLabel(item, text, edit, account) {
-        const entry = new St.Entry({text: account.label, can_focus: true, x_expand: true});
-        item.replace_child(text, entry);
-        edit.hide();
-        entry.clutter_text.connect('activate', () => {
-            if (entry.reactive === false)
-                return;
-            entry.reactive = false;
-            const label = entry.text.trim();
-            run(this._main, ['label', account.name, label], (_out, err) => {
-                if (!this._destroyed)
-                    this._reload(err ? `Rename failed: ${err}` : null);
-            });
+    _editAccountDialog(account) {
+        this.menu.close();
+        const dialog = new ModalDialog.ModalDialog({styleClass: 'prompt-dialog'});
+        this._dialog = dialog;
+        dialog.connect('closed', () => {
+            if (this._dialog === dialog)
+                this._dialog = null;
+            dialog.destroy();
         });
-        entry.clutter_text.connect('key-press-event', (_a, event) => {
-            if (event.get_key_symbol() !== Clutter.KEY_Escape)
-                return Clutter.EVENT_PROPAGATE;
-            this._reload();
-            return Clutter.EVENT_STOP;
+        const box = new St.BoxLayout({vertical: true, style: 'spacing: 8px;'});
+        const labelEntry = new St.Entry({text: account.label, hint_text: 'Label', can_focus: true});
+        let lifespan = account.lifespan;
+        const toggle = new St.Button({label: lifespan, can_focus: true, style_class: 'button'});
+        const untilEntry = new St.Entry({text: account.until ?? '', hint_text: 'End date YYYY-MM-DD', can_focus: true});
+        const status = new St.Label({text: ''});
+        toggle.connect('clicked', () => {
+            lifespan = lifespan === 'permanent' ? 'temporary' : 'permanent';
+            toggle.label = lifespan;
+            untilEntry.reactive = lifespan === 'temporary';
         });
-        entry.grab_key_focus();
+        untilEntry.reactive = lifespan === 'temporary';
+        [new St.Label({text: `Edit ${account.name}`}), labelEntry, toggle, untilEntry, status]
+            .forEach(w => box.add_child(w));
+        dialog.contentLayout.add_child(box);
+        dialog.addButton({label: 'Cancel', key: Clutter.KEY_Escape, action: () => dialog.close()});
+        dialog.addButton({
+            label: 'Save',
+            default: true,
+            action: () => {
+                const until = untilEntry.text.trim();
+                if (lifespan === 'temporary' && until && !/^\d{4}-\d{2}-\d{2}$/.test(until)) {
+                    status.text = 'Use the date form YYYY-MM-DD';
+                    return;
+                }
+                dialog.close();
+                const args = ['edit', account.name, '--label', labelEntry.text.trim(), '--lifespan', lifespan];
+                if (lifespan === 'temporary' && until)
+                    args.push('--until', until);
+                run(this._main, args, (_out, err) => {
+                    if (!this._destroyed)
+                        this._reload(err ? `Edit failed: ${err}` : null);
+                });
+            },
+        });
+        dialog.open();
+        labelEntry.grab_key_focus();
     }
 
     destroy() {
@@ -212,6 +237,8 @@ class Indicator extends PanelMenu.Button {
             this._blocks.addMenuItem(new PopupMenu.PopupMenuItem(model.activeLine, {reactive: false}));
             if (model.recommended)
                 this._blocks.addMenuItem(new PopupMenu.PopupMenuItem(`switch to: ${model.recommended}`, {reactive: false}));
+            (model.notices ?? []).forEach(n =>
+                this._blocks.addMenuItem(new PopupMenu.PopupMenuItem(n, {reactive: false})));
             if (model.accounts.length === 0)
                 this._blocks.addMenuItem(new PopupMenu.PopupMenuItem('No data yet: press Refresh', {reactive: false}));
             model.accounts.forEach(a => this._addAccountRow(a));

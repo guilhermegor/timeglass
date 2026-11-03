@@ -49,6 +49,7 @@ Command line:
 ```bash
 npx timeglass add work   # one-time browser login
 npx timeglass            # usage and billing tables for every saved account
+npx timeglass edit work --lifespan temporary --until 2026-12-01   # auto-removed after that day
 npx timeglass --version
 ```
 
