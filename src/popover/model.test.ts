@@ -89,6 +89,23 @@ describe('buildPopoverModel overrides', () => {
   });
 });
 
+describe('buildPopoverModel time zone', () => {
+  const lateRenewal: BillingCache = {
+    personal: {
+      renewalAt: { value: '2026-11-05T01:00:00.000Z', readAt: '2026-10-10T09:00:00Z' },
+    },
+  } as BillingCache;
+
+  it('renders reset times and the renewal date in the same injected zone', () => {
+    const utc = buildPopoverModel(usage, lateRenewal, { now, timeZone: 'UTC' });
+    const sp = buildPopoverModel(usage, lateRenewal, { now, timeZone: 'America/Sao_Paulo' });
+    expect(utc.accounts[0]?.text).toMatch(/resets in 4h39m \(today 16:39\)/);
+    expect(utc.accounts[0]?.text).toMatch(/Renews 5 Nov/);
+    expect(sp.accounts[0]?.text).toMatch(/resets in 4h39m \(today 13:39\)/);
+    expect(sp.accounts[0]?.text).toMatch(/Renews 4 Nov/);
+  });
+});
+
 describe('recommend', () => {
   it('picks the account that frees up first when all are exhausted', () => {
     const accounts = fixture.exhausted as SnapshotAccount[];

@@ -16,6 +16,7 @@ export async function openPlaywrightSession(): Promise<LoginSession> {
   const { chromium } = await import('playwright');
   const browser = await chromium.launch({
     headless: false,
+    handleSIGTERM: false,
     channel: 'chrome',
     args: ['--disable-blink-features=AutomationControlled', '--no-first-run'],
     ignoreDefaultArgs: ['--enable-automation'],

@@ -15,12 +15,14 @@ function readHelper(extensionPath) {
     return JSON.parse(new globalThis.TextDecoder().decode(bytes));
 }
 
+const SIGTERM = 15;
+
 function lastErrorLine(stderr) {
     const lines = (stderr || '').trim().split('\n').filter(l => l && !/^Node\.js v\d/.test(l));
     return lines.pop() || '';
 }
 
-function run(helper, args, done) {
+function run(helper, args, done, running) {
     const mainPath = helper.main;
     const recorded = helper.node && GLib.file_test(helper.node, GLib.FileTest.IS_EXECUTABLE) ? helper.node : null;
     const nodeBin = recorded ?? GLib.find_program_in_path('node') ?? `${GLib.get_home_dir()}/.asdf/shims/node`;
@@ -34,7 +36,9 @@ function run(helper, args, done) {
         done(null, `cannot start node: ${e.message}`);
         return;
     }
+    running.add(proc);
     proc.communicate_utf8_async(null, null, (p, res) => {
+        running.delete(p);
         let result;
         try {
             const [, out, err] = p.communicate_utf8_finish(res);
@@ -54,6 +58,8 @@ class Indicator extends PanelMenu.Button {
     _init(helper, iconPath) {
         super._init(0.0, 'timeglass');
         this._main = helper;
+        this._running = new Set();
+        this.connect('destroy', () => this._stop());
         const box = new St.BoxLayout({style_class: 'panel-status-menu-box'});
         box.add_child(new St.Icon({gicon: Gio.icon_new_for_string(iconPath), style_class: 'system-status-icon'}));
         this._label = new St.Label({text: '—', y_align: Clutter.ActorAlign.CENTER});
@@ -74,6 +80,17 @@ class Indicator extends PanelMenu.Button {
         this._reload();
     }
 
+    _run(args, done) {
+        run(this._main, args, done, this._running);
+    }
+
+    _stop() {
+        this._destroyed = true;
+        this._dialog?.close();
+        this._running.forEach(proc => proc.send_signal(SIGTERM));
+        this._running.clear();
+    }
+
     _setBusy(busy) {
         this._busy = busy;
         this._refreshItem.setSensitive(!busy);
@@ -85,7 +102,7 @@ class Indicator extends PanelMenu.Button {
             return;
         this._setBusy(true);
         this._label.text = '…';
-        run(this._main, ['refresh'], (_out, err) => {
+        this._run(['refresh'], (_out, err) => {
             if (this._destroyed)
                 return;
             this._setBusy(false);
@@ -137,12 +154,12 @@ class Indicator extends PanelMenu.Button {
                 Main.notify('timeglass', failure);
             this._reload(failure);
         };
-        run(this._main, ['add', name], (_out, err) => {
+        this._run(['add', name], (_out, err) => {
             if (this._destroyed)
                 return;
             if (err)
                 return finish(`Add account failed: ${err}`);
-            run(this._main, ['refresh'], (_o, refreshErr) => {
+            this._run(['refresh'], (_o, refreshErr) => {
                 if (!this._destroyed)
                     finish(refreshErr ? `Refresh failed: ${refreshErr}` : null);
             });
@@ -168,7 +185,7 @@ class Indicator extends PanelMenu.Button {
                 return;
             entry.reactive = false;
             const label = entry.text.trim();
-            run(this._main, ['label', account.name, label], (_out, err) => {
+            this._run(['label', account.name, label], (_out, err) => {
                 if (!this._destroyed)
                     this._reload(err ? `Rename failed: ${err}` : null);
             });
@@ -182,16 +199,10 @@ class Indicator extends PanelMenu.Button {
         entry.grab_key_focus();
     }
 
-    destroy() {
-        this._destroyed = true;
-        this._dialog?.close();
-        super.destroy();
-    }
-
     _reload(failure = null) {
         const generation = (this._generation ?? 0) + 1;
         this._generation = generation;
-        run(this._main, ['model'], (out, err) => {
+        this._run(['model'], (out, err) => {
             if (this._destroyed || generation !== this._generation)
                 return;
             this._blocks.removeAll();
