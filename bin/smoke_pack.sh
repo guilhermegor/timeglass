@@ -164,30 +164,53 @@ run_install_extension() {
 
 assert_extension_installed() {
     local installed="$1"
+    local package_dir="$2"
     local file
     for file in metadata.json extension.js; do
         if [ ! -f "$installed/$file" ]; then
-            print_status "error" "install-extension did not install $file; check package.json \"files\" and that extension/ exists"
+            print_status "error" "install-extension did not install $file into $installed; check package.json \"files\", that extension/ exists, and the uuid in metadata.json"
             exit 1
         fi
     done
-    if ! node -e "const h = require(process.argv[1]); if (!require('fs').existsSync(h.main)) process.exit(1);" "$installed/helper.json"; then
-        print_status "error" "install-extension wrote no helper.json, or its \"main\" path does not exist"
+    if ! node -e "
+      const path = require('path');
+      const h = require(process.argv[1]);
+      const ok = path.isAbsolute(h.main) && h.main.startsWith(process.argv[2] + path.sep) && require('fs').existsSync(h.main);
+      if (!ok) process.exit(1);
+    " "$installed/helper.json" "$package_dir"; then
+        print_status "error" "install-extension wrote no helper.json, or its \"main\" is not an existing absolute path inside $package_dir"
+        exit 1
+    fi
+}
+
+seed_stale_install() {
+    local installed="$1"
+    printf '{"main":"/nonexistent"}\n' > "$installed/helper.json"
+    : > "$installed/stale-sentinel"
+}
+
+assert_stale_files_replaced() {
+    local installed="$1"
+    if [ -e "$installed/stale-sentinel" ]; then
+        print_status "error" "reinstall left a stale file behind in $installed; the install must replace the directory, not merge into it"
         exit 1
     fi
 }
 
 smoke_extension_installs() {
     local pkg_name="$1"
-    local data_home uuid installed
+    local data_home package_dir uuid installed
     data_home="$(mktemp -d "$TMP_DIR/data.XXXXXX")"
-    uuid="$(node -p "require('$TMP_DIR/node_modules/$pkg_name/extension/metadata.json').uuid")"
+    package_dir="$TMP_DIR/node_modules/$pkg_name"
+    uuid="$(node -p "require(process.argv[1]).uuid" "$package_dir/extension/metadata.json")"
     installed="$data_home/gnome-shell/extensions/$uuid"
     run_install_extension "$pkg_name" "$data_home"
-    assert_extension_installed "$installed"
+    assert_extension_installed "$installed" "$package_dir"
+    seed_stale_install "$installed"
     run_install_extension "$pkg_name" "$data_home"
-    assert_extension_installed "$installed"
-    print_status "success" "npx $pkg_name install-extension smoke passed (fresh install and reinstall)"
+    assert_extension_installed "$installed" "$package_dir"
+    assert_stale_files_replaced "$installed"
+    print_status "success" "npx $pkg_name install-extension smoke passed (fresh install and reinstall over a stale one)"
 }
 
 main() {
