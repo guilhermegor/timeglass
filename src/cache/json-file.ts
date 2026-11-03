@@ -45,7 +45,9 @@ export function readJsonObjectOrNull(
   }
   try {
     const parsed: unknown = JSON.parse(raw);
-    return isPlainObject(parsed) ? parsed : null;
+    if (isPlainObject(parsed)) return parsed;
+    log.warn('ignoring non-object file', { file });
+    return null;
   } catch (err: unknown) {
     log.warn('ignoring corrupt file', {
       file,
@@ -63,13 +65,45 @@ function removeQuietly(file: string): void {
   }
 }
 
+const MAX_LINK_HOPS = 40;
+
+function realParentDir(file: string): string {
+  const dir = path.dirname(file);
+  try {
+    return fs.realpathSync.native(dir);
+  } catch (err: unknown) {
+    if (errorCode(err) === 'ENOENT') return dir;
+    throw err;
+  }
+}
+
+function resolveLinkTarget(link: string): string {
+  let current = link;
+  for (let hops = 0; hops <= MAX_LINK_HOPS; hops += 1) {
+    let target: string;
+    try {
+      target = fs.readlinkSync(current);
+    } catch (err: unknown) {
+      const code = errorCode(err);
+      if (code === 'EINVAL' || code === 'ENOENT') return current;
+      throw err;
+    }
+    const raw = path.isAbsolute(target) ? target : `${realParentDir(current)}${path.sep}${target}`;
+    current = path.join(realParentDir(raw), path.basename(raw));
+  }
+  throw Object.assign(new Error('too many symlink hops'), { code: 'ELOOP' });
+}
+
 export function writeJsonObject(
-  file: string,
+  link: string,
   data: JsonObject,
   log: LogEmitter = NULL_EMITTER,
 ): boolean {
-  const tmp = `${file}.${process.pid}.${threadId}.${randomBytes(TMP_SUFFIX_BYTES).toString('hex')}.tmp`;
+  let file = link;
+  let tmp = '';
   try {
+    file = resolveLinkTarget(link);
+    tmp = `${file}.${process.pid}.${threadId}.${randomBytes(TMP_SUFFIX_BYTES).toString('hex')}.tmp`;
     fs.mkdirSync(path.dirname(file), { recursive: true, mode: PRIVATE_DIR_MODE });
     fs.writeFileSync(tmp, `${JSON.stringify(data, null, 2)}\n`, {
       mode: PRIVATE_FILE_MODE,
@@ -78,7 +112,7 @@ export function writeJsonObject(
     fs.renameSync(tmp, file);
     return true;
   } catch (err: unknown) {
-    removeQuietly(tmp);
+    if (tmp) removeQuietly(tmp);
     log.error('cannot write file', { file, code: errorCode(err) });
     return false;
   }

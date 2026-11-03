@@ -82,7 +82,41 @@ describe('labels', () => {
     setLabel('work', '  ', opts());
     expect(readLabels(opts())).toEqual({});
   });
+});
 
+describe('labels on unusual files', () => {
+  it('refuses to edit a labels file holding non-object JSON, leaving it alone', () => {
+    const file = path.join(home, '.config', 'claudestatus-bar', 'labels.json');
+    fs.mkdirSync(path.dirname(file), { recursive: true });
+    fs.writeFileSync(file, '["x"]');
+    const warn = jest.fn();
+    const log = { debug: jest.fn(), info: jest.fn(), warn, error: jest.fn() };
+    expect(setLabel('work', 'W', opts(), log)).toBe(false);
+    expect(fs.readFileSync(file, 'utf8')).toBe('["x"]');
+    expect(warn).toHaveBeenCalledWith('ignoring non-object file', expect.any(Object));
+  });
+
+  it('refuses to rename in a labels file holding non-object JSON', () => {
+    const file = path.join(home, '.config', 'claudestatus-bar', 'labels.json');
+    fs.mkdirSync(path.dirname(file), { recursive: true });
+    fs.writeFileSync(file, '["x"]');
+    expect(renameLabel('work', 'other', opts())).toBe(false);
+    expect(fs.readFileSync(file, 'utf8')).toBe('["x"]');
+  });
+
+  it('writes a label through a symlinked labels.json', () => {
+    const file = path.join(home, '.config', 'claudestatus-bar', 'labels.json');
+    const real = path.join(home, 'real-labels.json');
+    fs.mkdirSync(path.dirname(file), { recursive: true });
+    fs.writeFileSync(real, '{}');
+    fs.symlinkSync(real, file);
+    expect(setLabel('work', 'W', opts())).toBe(true);
+    expect(fs.lstatSync(file).isSymbolicLink()).toBe(true);
+    expect(JSON.parse(fs.readFileSync(real, 'utf8'))).toEqual({ work: 'W' });
+  });
+});
+
+describe('label renames', () => {
   it('renames a label to a new account name, refusing to clobber another', () => {
     setLabel('a', 'A', opts());
     setLabel('b', 'B', opts());
