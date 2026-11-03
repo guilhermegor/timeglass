@@ -130,6 +130,7 @@ pointing at `dist/cjs/cli/bin.js`).
 | --- | --- |
 | `timeglass` | prints a usage table (session and weekly utilisation, reset day and time) and a billing table (plan, paid, renewal, auto-renew) for every saved account |
 | `timeglass add <name>` | opens a browser to log in to claude.ai and saves the account |
+| `timeglass edit <name> [--label <new>] [--lifespan permanent\|temporary] [--until YYYY-MM-DD]` | edits an account's label, lifespan and end date |
 | `timeglass --version` (`-v`) | prints the package version |
 | `timeglass --help` (`-h`) | prints the command list |
 
@@ -151,6 +152,27 @@ in the future. The weekly reset falls back to the cached value the same way.
 The CLI is the one call site that passes `CONSOLE_EMITTER`; library functions keep
 `NULL_EMITTER` unless the host injects a logger. Exit codes: `0` success, `1` login
 failed or timed out, `2` bad usage (unknown command, missing or invalid account name).
+
+## Temporary accounts
+
+Every account has a `lifespan`: `permanent` (the default, so existing accounts need no
+migration) or `temporary`, plus an optional `until` date (`YYYY-MM-DD`, only valid with
+`temporary`). Only non-default records are stored, in `lifespans.json` beside the account
+files. `timeglass edit work --lifespan temporary --until 2026-12-01` sets one;
+`--until` without `temporary`, a malformed or past date, or an unknown account is an error
+(non-zero exit). `--lifespan permanent` clears the record. The GNOME popover's edit button
+opens a dialog for label, lifespan and end date.
+
+A temporary account shows `[temporary, expires in Nd]` in the CLI tables and a
+`temporary, expires in Nd` badge in the popover. Within 7 days of `until` both warn.
+
+**Auto-remove trigger (design choice).** Expiry is checked whenever accounts are loaded:
+`timeglass` (default command), the popover `model` and `refresh`. No timer or daemon is
+needed, and an account can never be shown after it expired. The `until` day itself is not
+expired; the day after is (local date). Expiry deletes only that account's storageState,
+billing-cache entry, label, popover snapshot row and lifespan record, then prints a
+one-line notice. A `permanent` account, or a temporary one without `until`, is never removed.
+A machine that never runs timeglass removes nothing until its next run.
 
 ## Running tests and lint locally
 
