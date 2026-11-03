@@ -73,6 +73,7 @@ describe('buildPopoverModel overrides', () => {
       active: null,
       activeLine: 'active: unknown',
       accounts: [],
+      notices: [],
     });
   });
 

@@ -197,3 +197,42 @@ describe('runCli install-extension', () => {
     expect(lines.join('\n')).toContain('gnome-extensions enable');
   });
 });
+
+describe('runCli edit and lifespan', () => {
+  it('runCli_editTemporaryUntil_showsBadgeInTables', async () => {
+    saveAccount('work');
+    expect(await runCli(deps(['edit', 'work', '--lifespan', 'temporary', '--until', '2026-11-05']))).toBe(0);
+    out = [];
+    expect(await runCli(deps([], okFetch))).toBe(EXIT_OK);
+    expect(out.join('\n')).toContain('work [temporary, expires in 3d]');
+    expect(err.join('\n')).toContain('will be removed after 2026-11-05');
+  });
+
+  it('runCli_editUntilWithoutTemporary_failsWithClearError', async () => {
+    saveAccount('work');
+    expect(await runCli(deps(['edit', 'work', '--until', '2026-12-01']))).not.toBe(EXIT_OK);
+    expect(err.join('\n')).toContain('--lifespan temporary');
+  });
+
+  it('runCli_editUnknownAccount_exitsNonZero', async () => {
+    expect(await runCli(deps(['edit', 'ghost', '--label', 'x']))).toBe(1);
+    expect(err.join('\n')).toContain('Unknown account "ghost"');
+  });
+
+  it('runCli_editBadArgs_exitsUsage', async () => {
+    expect(await runCli(deps(['edit', 'work']))).toBe(EXIT_USAGE);
+    expect(await runCli(deps(['edit', 'work', '--until', 'soon']))).toBe(EXIT_USAGE);
+  });
+
+  it('runCli_expiredAccount_removedWithNotice', async () => {
+    saveAccount('work');
+    saveAccount('keep');
+    await runCli(deps(['edit', 'work', '--lifespan', 'temporary', '--until', '2026-11-02']));
+    out = [];
+    const later = { ...deps([], okFetch), now: new Date('2026-11-03T00:00:00Z') };
+    expect(await runCli(later)).toBe(EXIT_OK);
+    expect(err.join('\n')).toContain('Removed expired temporary account "work"');
+    expect(out.join('\n')).not.toContain('work');
+    expect(out.join('\n')).toContain('keep');
+  });
+});
