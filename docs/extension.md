@@ -26,6 +26,11 @@ Per account, in the order of the usage file, which refresh writes sorted by acco
 - Session and weekly usage bars with a countdown and the absolute reset time, for example
   `resets in 4h39m (today 21:44)`. Days are labelled `today`, `tomorrow`, the weekday, and from
   seven days out the full date.
+- Every time on the popover, reset times and the renewal date alike, is in the local time zone
+  of the machine running GNOME Shell (the popover is read where the user sits). Both go through
+  one injected `timeZone` in `buildPopoverModel`, so tests pin a zone instead of depending on the
+  host's. The `timeglass usage` tables are a separate surface and keep their own UTC default for
+  renewal dates.
 - A renewal line (`Renews 5 Nov`, `Ends 5 Nov` when auto-renew is off, `Billing managed by team
   admin`, or `Renewal unknown`) and the age of the data.
 - A `free` plan is flagged as unpaid; an account whose read failed shows the error and no bars.
@@ -55,6 +60,25 @@ in `src/popover/entry.ts` (internal, not re-exported from the package barrel); i
 the console itself: only `main.js` prints. `helper.json` also records the `node` that ran `install-extension` (`process.execPath`) and the
 extension spawns that binary, falling back to `node` on `PATH`. The recorded paths are absolute, so
 reinstall after moving or upgrading the package or Node; do not install from a throwaway `npx` cache.
+
+## Stopping in-flight commands
+
+Disabling the extension (or destroying the indicator) sends `SIGTERM` to every helper process
+still running: `model`, `refresh`, `label` and `add`. The extension tracks the processes it
+spawned and signals them itself, so nothing outlives the shell session's use of it. The hook is
+the actor's `destroy` signal rather than an override of `destroy()`.
+
+`SIGTERM` alone would skip the browser-login cleanup, so `main.js` handles it for `add`: the
+signal aborts the login poll, `addAccount` returns `Login cancelled.` and its `finally` closes the
+browser before the process exits. The poll checks for the abort every two seconds, so closing
+can lag the signal by up to that long. The other commands have nothing to clean up and keep the
+default `SIGTERM` behaviour.
+
+## Startup failures
+
+`main.js` loads `entry.js` dynamically inside a catch-all. Anything thrown while loading modules
+or before a command runs prints one line, `timeglass: <first line of the message>`, to stderr and
+exits with code 1, so the extension shows that line instead of Node's `Node.js vX` trailer.
 
 ## Known limits
 

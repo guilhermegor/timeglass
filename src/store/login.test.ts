@@ -93,7 +93,31 @@ describe('addAccount', () => {
     expect(session.closed).toBe(true);
     expect(fs.existsSync(dir)).toBe(false);
   });
+});
 
+describe('addAccount cancellation', () => {
+  it('stops polling when aborted, saves nothing, and still closes the browser', async () => {
+    const session = fakeSession(Infinity);
+    const controller = new AbortController();
+    const abortOnFirstSleep = (): Promise<void> => {
+      controller.abort();
+      return Promise.resolve();
+    };
+    const result = await addAccount('work', {
+      dir,
+      sleep: abortOnFirstSleep,
+      signal: controller.signal,
+      openSession: () => Promise.resolve(session),
+    });
+
+    expect(result).toEqual({ state: 'failed', message: 'Login cancelled.' });
+    expect(session.probes).toBe(1);
+    expect(session.closed).toBe(true);
+    expect(fs.existsSync(dir)).toBe(false);
+  });
+});
+
+describe('addAccount no usable session', () => {
   it('fails without saving when the browser returns no usable session', async () => {
     const session = fakeSession(0, { not: 'a state' });
     const result = await addAccount('work', {
@@ -106,7 +130,6 @@ describe('addAccount', () => {
     expect(loadStorageState(dir, 'work')).toBeNull();
     expect(session.closed).toBe(true);
   });
-
 });
 
 describe('addAccount degraded paths', () => {

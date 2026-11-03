@@ -15,6 +15,7 @@ export interface AddAccountOptions {
   openSession?: () => Promise<LoginSession>;
   sleep?: (ms: number) => Promise<void>;
   timeoutMs?: number;
+  signal?: AbortSignal;
   logger?: LogEmitter;
 }
 
@@ -31,9 +32,11 @@ async function waitForLogin(
   session: LoginSession,
   sleep: (ms: number) => Promise<void>,
   timeoutMs: number,
+  signal?: AbortSignal,
 ): Promise<boolean> {
   const attempts = Math.max(1, Math.ceil(timeoutMs / POLL_INTERVAL_MS));
   for (let attempt = 0; attempt < attempts; attempt += 1) {
+    if (signal?.aborted) throw new Error('Login cancelled.');
     if (await session.isLoggedIn().catch(() => false)) return true;
     await sleep(POLL_INTERVAL_MS);
   }
@@ -61,7 +64,7 @@ export async function addAccount(
   options: AddAccountOptions,
 ): Promise<AddAccountResult> {
   assertValidAccountName(name);
-  const { dir, logger = NULL_EMITTER, sleep = pause, timeoutMs = LOGIN_TIMEOUT_MS } = options;
+  const { dir, logger = NULL_EMITTER, sleep = pause, timeoutMs = LOGIN_TIMEOUT_MS, signal } = options;
   let session: LoginSession;
   try {
     session = await (options.openSession ?? openPlaywrightSession)();
@@ -71,7 +74,7 @@ export async function addAccount(
   }
   try {
     await session.open(LOGIN_URL);
-    if (!(await waitForLogin(session, sleep, timeoutMs))) return { state: 'timeout' };
+    if (!(await waitForLogin(session, sleep, timeoutMs, signal))) return { state: 'timeout' };
     const result = await captureAndSave(session, dir, name, sleep);
     logger.info('login finished', { state: result.state });
     return result;

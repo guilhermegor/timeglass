@@ -14,7 +14,7 @@ export interface EntryResult {
   stderr: string;
 }
 
-export type EntryOptions = RefreshOptions;
+export type EntryOptions = RefreshOptions & { signal?: AbortSignal };
 
 const USAGE = 'usage: model | refresh | add <name> | label <name> [text]';
 
@@ -42,6 +42,7 @@ async function addByName(name: string, options: EntryOptions): Promise<EntryResu
   const result = await addAccount(name, {
     dir: options.accountsDir ?? defaultAccountsDir(options.env),
     ...(options.logger && { logger: options.logger }),
+    ...(options.signal && { signal: options.signal }),
   });
   if (result.state === 'added') return ok();
   return fail(result.state === 'failed' ? result.message : 'Login timed out.');
