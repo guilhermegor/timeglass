@@ -1,0 +1,60 @@
+{
+  "now": "2026-10-12T12:00:00Z",
+  "usage": {
+    "at": "2026-10-12T11:57:00Z",
+    "accounts": [
+      {
+        "name": "personal",
+        "plan": "pro",
+        "session": { "utilization": 54, "resetsAt": "2026-10-12T16:39:00Z" },
+        "weekly": { "utilization": 30, "resetsAt": "2026-10-15T12:00:00Z" }
+      },
+      {
+        "name": "work",
+        "plan": "team",
+        "session": { "utilization": 10, "resetsAt": "2026-10-12T15:00:00Z" },
+        "weekly": { "utilization": 100, "resetsAt": "2026-10-14T12:00:00Z" }
+      },
+      {
+        "name": "lapsed",
+        "plan": "free",
+        "session": { "utilization": 0, "resetsAt": "2026-10-12T15:00:00Z" },
+        "weekly": { "utilization": 0, "resetsAt": null }
+      },
+      { "name": "broken", "plan": "unknown", "error": "Session expired. Run refresh." }
+    ]
+  },
+  "exhausted": [
+    {
+      "name": "slow",
+      "plan": "pro",
+      "session": { "utilization": 0, "resetsAt": null },
+      "weekly": { "utilization": 100, "resetsAt": "2026-10-12T22:00:00Z" }
+    },
+    {
+      "name": "fast",
+      "plan": "pro",
+      "session": { "utilization": 100, "resetsAt": "2026-10-12T13:00:00Z" },
+      "weekly": { "utilization": 100, "resetsAt": "2026-10-12T13:00:00Z" }
+    }
+  ],
+  "badReset": [
+    { "name": "x", "plan": "pro", "session": { "utilization": 5, "resetsAt": "not-a-date" } }
+  ],
+  "cache": {
+    "personal": {
+      "renewalAt": { "value": "2026-11-05T12:00:00.000Z", "readAt": "2026-10-10T09:00:00Z" },
+      "autoRenew": { "value": true, "readAt": "2026-10-10T09:00:00Z" }
+    },
+    "work": {
+      "renewalAt": { "value": "2026-11-05T12:00:00.000Z", "readAt": "2026-10-10T09:00:00Z" },
+      "autoRenew": { "value": false, "readAt": "2026-10-10T09:00:00Z" }
+    },
+    "lapsed": {
+      "weeklyResetAt": { "value": "2026-10-17T12:00:00.000Z", "readAt": "2026-10-10T09:00:00Z" }
+    }
+  },
+  "managedCache": {
+    "lapsed": { "managedByAdmin": { "value": true, "readAt": "2026-10-12T11:00:00Z" } }
+  }
+}
