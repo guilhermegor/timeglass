@@ -64,22 +64,28 @@ export function recommend(
   return pickBest(open.length ? open : scored, open.length > 0)?.account ?? null;
 }
 
+interface Clock {
+  now: Date;
+  timeZone?: string | undefined;
+}
+
 function limitLine(
   label: string,
   limit: LimitReading | undefined,
   reset: string | null,
-  now: Date,
+  clock: Clock,
 ) {
   if (!limit) return `${label}  —`;
   const known = reset !== null && Number.isFinite(Date.parse(reset));
   const when = known
-    ? `resets in ${countdown(reset, now)} (${resetAt(reset, now)})`
+    ? `resets in ${countdown(reset, clock.now)} (${resetAt(reset, clock.now, clock.timeZone)})`
     : 'reset unknown';
   const pct = String(limit.utilization).padStart(PCT_WIDTH);
   return `${label}  ${usageBar(limit.utilization)} ${pct}%  ${when}`;
 }
 
-function renewalLine(entry: CacheEntry | undefined, now: Date): string {
+function renewalLine(entry: CacheEntry | undefined, clock: Clock): string {
+  const { now, timeZone } = clock;
   const at = entry?.renewalAt ? Date.parse(entry.renewalAt.value) : Number.NaN;
   if (!(at > now.getTime())) {
     return entry?.managedByAdmin?.value ? 'Billing managed by team admin' : 'Renewal unknown';
@@ -87,7 +93,7 @@ function renewalLine(entry: CacheEntry | undefined, now: Date): string {
   const date = new Date(at).toLocaleDateString('en-GB', {
     day: 'numeric',
     month: 'short',
-    timeZone: 'UTC',
+    timeZone,
   });
   return entry?.autoRenew?.value === false ? `Ends ${date}` : `Renews ${date}`;
 }
@@ -101,18 +107,19 @@ function accountText(
   account: SnapshotAccount,
   label: string,
   entry: CacheEntry | undefined,
-  context: { at: string | null; now: Date; active: boolean },
+  context: { at: string | null; clock: Clock; active: boolean },
 ): string {
-  const { at, now, active } = context;
+  const { at, clock, active } = context;
+  const { now } = clock;
   const badge = (account.plan === 'free' ? '  ⚠ unpaid' : '') + (active ? '  ● active' : '');
   const head = `${label}  ${planName(account)}${badge}`;
   if (account.error) return `${head}\n✗ ${account.error}`;
   const weeklyReset = effectiveWeeklyReset(entry, account.weekly?.resetsAt, now);
   return [
     head,
-    limitLine('Session', account.session, account.session?.resetsAt ?? null, now),
-    limitLine('Weekly ', account.weekly, weeklyReset, now),
-    `${renewalLine(entry, now)}  ·  updated ${at ? ago(at, now) : 'never'}`,
+    limitLine('Session', account.session, account.session?.resetsAt ?? null, clock),
+    limitLine('Weekly ', account.weekly, weeklyReset, clock),
+    `${renewalLine(entry, clock)}  ·  updated ${at ? ago(at, now) : 'never'}`,
   ].join('\n');
 }
 
@@ -126,9 +133,10 @@ function barText(shown: SnapshotAccount | undefined, fallback: SnapshotAccount |
 export function buildPopoverModel(
   usage: UsageSnapshot,
   cache: BillingCache,
-  options: { now?: Date; activeName?: string | null; labels?: Labels } = {},
+  options: { now?: Date; activeName?: string | null; labels?: Labels; timeZone?: string } = {},
 ): PopoverModel {
-  const { now = new Date(), activeName = null, labels = {} } = options;
+  const { now = new Date(), activeName = null, labels = {}, timeZone } = options;
+  const clock: Clock = { now, timeZone };
   const best = recommend(usage.accounts, now);
   const act = usage.accounts.find((a) => a.name === activeName);
   const shown = act?.session ? act : undefined;
@@ -139,7 +147,7 @@ export function buildPopoverModel(
     activeLine: act ? `active: ${act.name}` : 'active: unknown',
     accounts: usage.accounts.map((a) => {
       const label = labels[a.name] ?? a.name;
-      const text = accountText(a, label, cache[a.name], { at: usage.at, now, active: a === act });
+      const text = accountText(a, label, cache[a.name], { at: usage.at, clock, active: a === act });
       return { name: a.name, label, text };
     }),
   };
