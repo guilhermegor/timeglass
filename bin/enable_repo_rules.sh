@@ -48,7 +48,7 @@ build_rules_json() {
 			str_contexts+="$(printf '{"context":"%s"},' "$str_check")"
 		done
 		str_contexts="${str_contexts%,}"
-		str_checks_rule=$(printf ',{"type":"required_status_checks","parameters":{"strict_required_status_checks_policy":true,"required_status_checks":[%s]}}' "$str_contexts")
+		str_checks_rule=$(printf ',{"type":"required_status_checks","parameters":{"strict_required_status_checks_policy":false,"required_status_checks":[%s]}}' "$str_contexts")
 	fi
 
 	cat <<EOF
@@ -153,11 +153,11 @@ report_blocking_checks() {
 		print_status "warning" "strict_required_status_checks_policy is absent on $str_repo (ruleset '$RULESET_NAME') — UNKNOWN, not enforced"
 		return 2
 	fi
-	if [ "$str_strict" != "true" ]; then
-		print_status "error" "strict_required_status_checks_policy is NOT true on $str_repo (ruleset '$RULESET_NAME') — a PR can merge on a green run that never saw its base (blueprintx#307)"
+	if [ "$str_strict" != "false" ]; then
+		print_status "error" "strict_required_status_checks_policy is NOT false on $str_repo (ruleset '$RULESET_NAME') — every merge sends all other PRs behind the base and re-runs their CI (blueprintx#1283)"
 		return 1
 	fi
-	print_status "success" "strict_required_status_checks_policy is enforced on $str_repo (ruleset '$RULESET_NAME', verified)"
+	print_status "success" "strict_required_status_checks_policy is off on $str_repo (ruleset '$RULESET_NAME', verified)"
 }
 
 assert_branch_protection_strict() {
@@ -172,11 +172,11 @@ assert_branch_protection_strict() {
 		print_status "warning" "$str_repo:$str_branch has no required_status_checks under classic branch protection — nothing to assert strict on"
 		return 2
 	fi
-	if [ "$str_strict" != "true" ]; then
-		print_status "error" "required_status_checks.strict is NOT true on $str_repo:$str_branch (classic branch protection) — a PR can merge on a green run that never saw its base (blueprintx#307)"
+	if [ "$str_strict" != "false" ]; then
+		print_status "error" "required_status_checks.strict is NOT false on $str_repo:$str_branch (classic branch protection) — every merge sends all other PRs behind the base and re-runs their CI (blueprintx#1283)"
 		return 1
 	fi
-	print_status "success" "required_status_checks.strict is enforced on $str_repo:$str_branch (classic branch protection, verified)"
+	print_status "success" "required_status_checks.strict is off on $str_repo:$str_branch (classic branch protection, verified)"
 }
 
 verify_strict_required_checks() {
@@ -202,7 +202,7 @@ verify_strict_required_checks() {
 		return 1
 	fi
 	if [ "$int_ruleset_result" -ne 0 ] && [ "$int_protection_result" -ne 0 ]; then
-		print_status "error" "Neither mechanism confirmed strict enforcement on $str_repo (both absent or unreadable) — absence is not proof (blueprintx#307)"
+		print_status "error" "Neither mechanism confirmed the strict policy is off on $str_repo (both absent or unreadable) — absence is not proof (blueprintx#1283)"
 		return 1
 	fi
 	return 0
