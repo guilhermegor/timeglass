@@ -146,15 +146,15 @@ report_blocking_checks() {
 	if ! str_strict="$(gh api "repos/$str_repo/rulesets/$str_id" --jq \
 		'[.rules[]? | select(.type == "required_status_checks")
 		  | .parameters.strict_required_status_checks_policy] | first' 2>&1)"; then
-		print_status "warning" "Could not READ the strict policy on $str_repo (so it is UNKNOWN, not enforced): ${str_strict:-no output from gh}"
+		print_status "warning" "Could not READ the strict policy on $str_repo (so it is UNKNOWN, not confirmed off): ${str_strict:-no output from gh}"
 		return 2
 	fi
 	if [ "$str_strict" = "null" ] || [ -z "$str_strict" ]; then
-		print_status "warning" "strict_required_status_checks_policy is absent on $str_repo (ruleset '$RULESET_NAME') — UNKNOWN, not enforced"
+		print_status "warning" "strict_required_status_checks_policy is absent on $str_repo (ruleset '$RULESET_NAME') — UNKNOWN, not confirmed off"
 		return 2
 	fi
 	if [ "$str_strict" != "false" ]; then
-		print_status "error" "strict_required_status_checks_policy is NOT false on $str_repo (ruleset '$RULESET_NAME') — every merge sends all other PRs behind the base and re-runs their CI (blueprintx#1283)"
+		print_status "error" "strict_required_status_checks_policy is NOT false on $str_repo (ruleset '$RULESET_NAME') — every merge forces every other PR to update to the base and re-run its CI (blueprintx#1283)"
 		return 1
 	fi
 	print_status "success" "strict_required_status_checks_policy is off on $str_repo (ruleset '$RULESET_NAME', verified)"
@@ -165,7 +165,7 @@ assert_branch_protection_strict() {
 	local str_strict
 	if ! str_strict="$(gh api "repos/$str_repo/branches/$str_branch/protection" --jq \
 		'.required_status_checks.strict' 2>&1)"; then
-		print_status "warning" "Could not READ classic branch protection on $str_repo:$str_branch (so strict is UNKNOWN, not enforced): ${str_strict:-no output from gh}"
+		print_status "warning" "Could not READ classic branch protection on $str_repo:$str_branch (so strict is UNKNOWN, not confirmed off): ${str_strict:-no output from gh}"
 		return 2
 	fi
 	if [ "$str_strict" = "null" ] || [ -z "$str_strict" ]; then
@@ -173,7 +173,7 @@ assert_branch_protection_strict() {
 		return 2
 	fi
 	if [ "$str_strict" != "false" ]; then
-		print_status "error" "required_status_checks.strict is NOT false on $str_repo:$str_branch (classic branch protection) — every merge sends all other PRs behind the base and re-runs their CI (blueprintx#1283)"
+		print_status "error" "required_status_checks.strict is NOT false on $str_repo:$str_branch (classic branch protection) — every merge forces every other PR to update to the base and re-run its CI (blueprintx#1283)"
 		return 1
 	fi
 	print_status "success" "required_status_checks.strict is off on $str_repo:$str_branch (classic branch protection, verified)"
